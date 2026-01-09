@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EZGV - Image Viewer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">EZGV</div>
+            <div class="controls">
+                <span id="folder-path" class="folder-path-display">No folder selected</span>
+                <button id="select-folder-btn" class="primary-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    Select Folder
+                </button>
+            </div>
+        </header>
+
+        <main id="image-grid" class="image-grid">
+            <div class="empty-state">
+                <div class="empty-icon">📂</div>
+                <h2>フォルダを選択してください</h2>
+                <p>指定したフォルダ内の画像（サブフォルダ含む）がここに表示されます</p>
+            </div>
+        </main>
+
+        <div id="loading" class="loading-overlay hidden">
+            <div class="loader"></div>
+            <p>画像を読み込み中...</p>
+        </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox hidden">
+        <span class="close-lightbox">&times;</span>
+        <img id="lightbox-img" src="" alt="Large View">
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

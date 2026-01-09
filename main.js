@@ -1,6 +1,21 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const url = require('url');
+
+// 1. プロトコルの特権登録 (アプリの準備が整う前に必要)
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'local-image',
+        privileges: {
+            standard: true,
+            secure: true,
+            supportFetchAPI: true,
+            bypassCSP: true,
+            stream: true
+        }
+    }
+]);
 
 let mainWindow;
 
@@ -76,13 +91,16 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-    // Register protocol for local images
-    protocol.registerFileProtocol('local-image', (request, callback) => {
-        const url = request.url.replace(/^local-image:\/\//, '');
+    // 2. プロトコルハンドラの設定 (より確実な方法に変更)
+    protocol.handle('local-image', async (request) => {
         try {
-            return callback(decodeURIComponent(url));
+            const urlObj = new URL(request.url);
+            const filePath = decodeURIComponent(urlObj.searchParams.get('path'));
+            const data = fs.readFileSync(filePath);
+            return new Response(data);
         } catch (error) {
-            console.error(error);
+            console.error('Protocol Error:', error);
+            return new Response('Error loading image', { status: 500 });
         }
     });
 
@@ -125,7 +143,15 @@ ipcMain.handle('get-images', async (event, folderPath) => {
     const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
 
     function walkSync(dir) {
-        const files = fs.readdirSync(dir);
+        let files;
+        try {
+            files = fs.readdirSync(dir);
+        } catch (e) {
+            // アクセス権限がないフォルダなどはスキップ
+            console.warn(`Skip directory (Access Denied): ${dir}`);
+            return;
+        }
+
         files.forEach(file => {
             const filePath = path.join(dir, file);
             try {
@@ -139,7 +165,7 @@ ipcMain.handle('get-images', async (event, folderPath) => {
                     }
                 }
             } catch (e) {
-                console.error(`Error processing ${filePath}:`, e);
+                // ファイル個別のエラーもスキップ
             }
         });
     }

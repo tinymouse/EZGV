@@ -31,13 +31,14 @@ async function loadImages(folderPath) {
                 card.setAttribute('data-name', fileName);
 
                 const img = document.createElement('img');
-                // Use custom protocol for local images
-                img.src = `local-image://${imagePath}`;
+                // ローカルパスをクエリパラメータとして渡す（最も確実な形式）
+                const encodedPath = encodeURIComponent(imagePath);
+                img.src = `local-image://load?path=${encodedPath}`;
                 img.loading = 'lazy';
 
                 card.appendChild(img);
                 card.addEventListener('click', () => {
-                    lightboxImg.src = `local-image://${imagePath}`;
+                    lightboxImg.src = `local-image://load?path=${encodedPath}`;
                     lightbox.classList.remove('hidden');
                 });
 

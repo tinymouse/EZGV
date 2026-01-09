@@ -114,11 +114,94 @@ main {
     overflow-y: auto;
 }
 
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.details-pane {
+    width: 320px;
+    background: var(--header-bg);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.details-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.details-content h3 {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.preview-container {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.preview-container img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detail-item label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.detail-item span {
+    font-family: 'Space Mono', monospace; /* or fallback */
+    font-size: 0.9rem;
+    word-break: break-all;
+}
+
+.view-btn {
+    margin-top: 1rem;
+    justify-content: center;
+    width: 100%;
+}
+
+.no-selection {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+    padding: 2rem;
+}
+
 .image-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 1.5rem;
     align-content: start;
+    padding: 2rem;
 }
 
 .empty-state {
@@ -157,6 +240,11 @@ main {
     transform: scale(1.03);
     border-color: rgba(56, 189, 248, 0.4);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.image-card.selected {
+    border: 2px solid var(--accent-color);
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2);
 }
 
 .image-card:hover img {

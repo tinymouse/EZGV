@@ -178,3 +178,17 @@ ipcMain.handle('get-images', async (event, folderPath) => {
 
     return images;
 });
+
+ipcMain.handle('get-file-details', async (event, filePath) => {
+    try {
+        const stats = fs.statSync(filePath);
+        return {
+            size: stats.size,
+            birthtime: stats.birthtime,
+            mtime: stats.mtime
+        };
+    } catch (e) {
+        console.error('Error getting file details:', e);
+        return null;
+    }
+});

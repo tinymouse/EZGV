@@ -14,7 +14,10 @@ const detailResolution = document.getElementById('detail-resolution');
 const detailFilesize = document.getElementById('detail-filesize');
 const viewBtn = document.getElementById('view-btn');
 
-let selectedImage = null;
+// State
+let allImageCards = []; // Store references for Shift+Click
+let selectedImages = new Set(); // Store paths
+let lastSelectedCardIndex = -1; // For Shift+Click range
 
 function formatBytes(bytes, decimals = 2) {
     if (!+bytes) return '0 Bytes';
@@ -25,44 +28,108 @@ function formatBytes(bytes, decimals = 2) {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
-async function selectImage(card, imagePath, encodedPath) {
-    // UI selection update
-    document.querySelectorAll('.image-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
+async function updateDetailsPane() {
+    const count = selectedImages.size;
 
-    selectedImage = { path: encodedPath };
+    if (count === 0) {
+        noSelection.classList.remove('hidden');
+        detailsContent.classList.add('hidden');
+        return;
+    }
 
-    // Show details pane
     noSelection.classList.add('hidden');
     detailsContent.classList.remove('hidden');
 
-    // Update basic info
-    const fileName = imagePath.split(/[\\/]/).pop();
-    detailFilename.textContent = fileName;
+    if (count === 1) {
+        // Single File View
+        const imagePath = Array.from(selectedImages)[0];
+        const encodedPath = encodeURIComponent(imagePath);
+        const fileName = imagePath.split(/[\\/]/).pop();
 
-    // Update preview
-    detailPreview.src = `local-image://load?path=${encodedPath}`;
+        detailFilename.textContent = fileName;
+        detailPreview.src = `local-image://load?path=${encodedPath}`;
 
-    // Get file details from main process
-    try {
-        const details = await window.electronAPI.getFileDetails(imagePath);
-        if (details) {
-            detailFilesize.textContent = formatBytes(details.size);
+        // Reset/Wait resolution
+        detailResolution.textContent = '...';
+
+        try {
+            const details = await window.electronAPI.getFileDetails(imagePath);
+            if (details) detailFilesize.textContent = formatBytes(details.size);
+        } catch (e) {
+            detailFilesize.textContent = '-';
         }
-    } catch (e) {
-        console.error(e);
-        detailFilesize.textContent = 'Unknown';
+
+        if (detailPreview.complete) {
+            detailResolution.textContent = `${detailPreview.naturalWidth} x ${detailPreview.naturalHeight}`;
+        } else {
+            detailPreview.onload = () => {
+                detailResolution.textContent = `${detailPreview.naturalWidth} x ${detailPreview.naturalHeight}`;
+            };
+        }
+        viewBtn.disabled = false;
+
+    } else {
+        // Multiple Files View
+        detailFilename.textContent = `${count} files selected`;
+        detailPreview.src = '';
+        detailResolution.textContent = '-';
+        detailFilesize.textContent = '-';
+        viewBtn.disabled = true;
+    }
+}
+
+function handleSelection(card, index, imagePath, event) {
+    const isCtrl = event.ctrlKey || event.metaKey;
+    const isShift = event.shiftKey;
+    const isCheckbox = event.target.classList.contains('checkbox-overlay');
+
+    if (isCheckbox) {
+        // Toggle specific item via checkbox
+        if (selectedImages.has(imagePath)) {
+            selectedImages.delete(imagePath);
+            card.classList.remove('selected');
+        } else {
+            selectedImages.add(imagePath);
+            card.classList.add('selected');
+            lastSelectedCardIndex = index;
+        }
+    } else if (isShift && lastSelectedCardIndex !== -1) {
+        // Range selection
+        if (!isCtrl) {
+            // Clear others if Ctrl is not held
+            selectedImages.clear();
+            allImageCards.forEach(c => c.element.classList.remove('selected'));
+        }
+
+        const start = Math.min(lastSelectedCardIndex, index);
+        const end = Math.max(lastSelectedCardIndex, index);
+
+        for (let i = start; i <= end; i++) {
+            const item = allImageCards[i];
+            selectedImages.add(item.path);
+            item.element.classList.add('selected');
+        }
+    } else if (isCtrl) {
+        // Toggle selection via Ctrl+Click
+        if (selectedImages.has(imagePath)) {
+            selectedImages.delete(imagePath);
+            card.classList.remove('selected');
+        } else {
+            selectedImages.add(imagePath);
+            card.classList.add('selected');
+            lastSelectedCardIndex = index;
+        }
+    } else {
+        // Single selection (reset others)
+        selectedImages.clear();
+        allImageCards.forEach(c => c.element.classList.remove('selected'));
+
+        selectedImages.add(imagePath);
+        card.classList.add('selected');
+        lastSelectedCardIndex = index;
     }
 
-    // Get resolution from the loaded image in the grid or preview
-    // We add a oneshot listener to the preview image
-    if (detailPreview.complete) {
-        detailResolution.textContent = `${detailPreview.naturalWidth} x ${detailPreview.naturalHeight}`;
-    } else {
-        detailPreview.onload = () => {
-            detailResolution.textContent = `${detailPreview.naturalWidth} x ${detailPreview.naturalHeight}`;
-        };
-    }
+    updateDetailsPane();
 }
 
 async function loadImages(folderPath) {
@@ -71,10 +138,11 @@ async function loadImages(folderPath) {
     loadingOverlay.classList.remove('hidden');
     folderPathDisplay.textContent = folderPath;
 
-    // Reset selection
-    selectedImage = null;
-    noSelection.classList.remove('hidden');
-    detailsContent.classList.add('hidden');
+    // Reset state
+    selectedImages.clear();
+    allImageCards = [];
+    lastSelectedCardIndex = -1;
+    updateDetailsPane();
 
     try {
         const images = await window.electronAPI.getImages(folderPath);
@@ -88,26 +156,32 @@ async function loadImages(folderPath) {
                 </div>`;
         } else {
             imageGrid.innerHTML = '';
-            images.forEach(imagePath => {
+            images.forEach((imagePath, index) => {
                 const fileName = imagePath.split(/[\\/]/).pop();
                 const card = document.createElement('div');
                 card.className = 'image-card';
                 card.setAttribute('data-name', fileName);
 
+                const checkbox = document.createElement('div');
+                checkbox.className = 'checkbox-overlay';
+                card.appendChild(checkbox);
+
                 const img = document.createElement('img');
-                // ローカルパスをクエリパラメータとして渡す（最も確実な形式）
                 const encodedPath = encodeURIComponent(imagePath);
                 img.src = `local-image://load?path=${encodedPath}`;
                 img.loading = 'lazy';
 
                 card.appendChild(img);
 
+                // Store reference
+                allImageCards.push({ element: card, path: imagePath });
+
                 // Click to select
-                card.addEventListener('click', () => {
-                    selectImage(card, imagePath, encodedPath);
+                card.addEventListener('click', (e) => {
+                    handleSelection(card, index, imagePath, e);
                 });
 
-                // Double click to view (optional, but requested behavior is via button)
+                // Double click to view
                 card.addEventListener('dblclick', () => {
                     lightboxImg.src = `local-image://load?path=${encodedPath}`;
                     lightbox.classList.remove('hidden');
@@ -131,8 +205,10 @@ async function loadImages(folderPath) {
 
 // View Button Action
 viewBtn.addEventListener('click', () => {
-    if (selectedImage) {
-        lightboxImg.src = `local-image://load?path=${selectedImage.path}`;
+    if (selectedImages.size === 1) {
+        const path = Array.from(selectedImages)[0];
+        const encodedPath = encodeURIComponent(path);
+        lightboxImg.src = `local-image://load?path=${encodedPath}`;
         lightbox.classList.remove('hidden');
     }
 });

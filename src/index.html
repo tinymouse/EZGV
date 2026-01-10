@@ -54,6 +54,26 @@
                         <label>File Size</label>
                         <span id="detail-filesize">-</span>
                     </div>
+                    
+                    <div class="detail-item label-section">
+                        <label>Labels</label>
+                        <div id="label-container" class="label-container">
+                            <div class="label-row">
+                                <input type="checkbox" id="label-person" value="人物">
+                                <label for="label-person">人物 (Person)</label>
+                            </div>
+                            <div class="label-row">
+                                <input type="checkbox" id="label-landscape" value="風景">
+                                <label for="label-landscape">風景 (Landscape)</label>
+                            </div>
+                            <div class="label-row">
+                                <input type="checkbox" id="label-system" value="システム">
+                                <label for="label-system">システム (System)</label>
+                            </div>
+                        </div>
+                        <button id="save-labels-btn" class="secondary-btn" style="margin-top: 10px; width: 100%;">登録 (Save)</button>
+                    </div>
+
                     <button id="view-btn" class="primary-btn view-btn">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

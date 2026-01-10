@@ -148,10 +148,65 @@ ipcMain.handle('get-last-folder', () => {
     return settings.lastFolder || null;
 });
 
+ipcMain.handle('get-file-details', async (event, filePath) => {
+    try {
+        const stats = fs.statSync(filePath);
+        return {
+            size: stats.size,
+            birthtime: stats.birthtime,
+            mtime: stats.mtime
+        };
+    } catch (e) {
+        console.error('Error getting file details:', e);
+        return null;
+    }
+});
+
+// Label Management
+function getLabelFilePath(imagePath) {
+    // Strategy: image.jpg -> image.jpg.txt to avoid collisions
+    return `${imagePath}.txt`; 
+}
+
+function getLabelsForFile(imagePath) {
+    try {
+        const txtPath = getLabelFilePath(imagePath);
+        if (fs.existsSync(txtPath)) {
+            const content = fs.readFileSync(txtPath, 'utf-8');
+            const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+            // First line might be filename (as per requirement), subsequent are labels
+            // Requirement: "Record filename and attributes"
+            // Let's assume:
+            // Line 1: filename
+            // Line 2+: labels
+            if (lines.length > 1) {
+                return lines.slice(1);
+            }
+        }
+    } catch (e) {
+        // user might delete file manually etc.
+    }
+    return [];
+}
+
+ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
+    try {
+        const txtPath = getLabelFilePath(filePath);
+        const fileName = path.basename(filePath);
+        const content = [fileName, ...labels].join('\n');
+        fs.writeFileSync(txtPath, content, 'utf-8');
+        return { success: true };
+    } catch (e) {
+        console.error('Failed to save labels:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+// Update get-images to return labels
 ipcMain.handle('get-images', async (event, folderPath) => {
     if (!folderPath) return [];
 
-    const images = [];
+    const images = []; // Array of { path, labels }
     const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
 
     function walkSync(dir) {
@@ -159,7 +214,6 @@ ipcMain.handle('get-images', async (event, folderPath) => {
         try {
             files = fs.readdirSync(dir);
         } catch (e) {
-            // アクセス権限がないフォルダなどはスキップ
             console.warn(`Skip directory (Access Denied): ${dir}`);
             return;
         }
@@ -173,11 +227,15 @@ ipcMain.handle('get-images', async (event, folderPath) => {
                 } else {
                     const ext = path.extname(file).toLowerCase();
                     if (extensions.includes(ext)) {
-                        images.push(filePath);
+                        const labels = getLabelsForFile(filePath);
+                        images.push({
+                            path: filePath,
+                            labels: labels
+                        });
                     }
                 }
             } catch (e) {
-                // ファイル個別のエラーもスキップ
+                // Skip file errors
             }
         });
     }
@@ -189,18 +247,4 @@ ipcMain.handle('get-images', async (event, folderPath) => {
     }
 
     return images;
-});
-
-ipcMain.handle('get-file-details', async (event, filePath) => {
-    try {
-        const stats = fs.statSync(filePath);
-        return {
-            size: stats.size,
-            birthtime: stats.birthtime,
-            mtime: stats.mtime
-        };
-    } catch (e) {
-        console.error('Error getting file details:', e);
-        return null;
-    }
 });

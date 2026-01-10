@@ -19,6 +19,14 @@ let allImageCards = []; // Store references for Shift+Click
 let selectedImages = new Set(); // Store paths
 let lastSelectedCardIndex = -1; // For Shift+Click range
 
+const saveLabelsBtn = document.getElementById('save-labels-btn');
+
+const labelCheckboxes = {
+    '人物': document.getElementById('label-person'),
+    '風景': document.getElementById('label-landscape'),
+    'システム': document.getElementById('label-system')
+};
+
 function formatBytes(bytes, decimals = 2) {
     if (!+bytes) return '0 Bytes';
     const k = 1024;
@@ -74,9 +82,101 @@ async function updateDetailsPane() {
         detailPreview.src = '';
         detailResolution.textContent = '-';
         detailFilesize.textContent = '-';
-        viewBtn.disabled = false; // 複数選択でもComparison Viewとして有効化
+        viewBtn.disabled = false;
+    }
+
+    // Update Labels
+    Object.keys(labelCheckboxes).forEach(key => {
+        const checkbox = labelCheckboxes[key];
+        checkbox.checked = false;
+        checkbox.indeterminate = false;
+    });
+
+    if (count > 0) {
+        Object.keys(labelCheckboxes).forEach(labelName => {
+            const checkbox = labelCheckboxes[labelName];
+            let matchCount = 0;
+
+            selectedImages.forEach(path => {
+                const card = allImageCards.find(c => c.path === path);
+                if (card && card.labels && card.labels.includes(labelName)) {
+                    matchCount++;
+                }
+            });
+
+            if (matchCount === count) {
+                checkbox.checked = true;
+                checkbox.indeterminate = false;
+            } else if (matchCount === 0) {
+                checkbox.checked = false;
+                checkbox.indeterminate = false;
+            } else {
+                checkbox.checked = false;
+                checkbox.indeterminate = true;
+            }
+        });
     }
 }
+
+// ... helper ...
+
+saveLabelsBtn.addEventListener('click', async () => {
+    const count = selectedImages.size;
+    if (count === 0) return;
+
+    saveLabelsBtn.disabled = true;
+    saveLabelsBtn.textContent = '保存中...';
+
+    try {
+        const updates = {};
+        Object.entries(labelCheckboxes).forEach(([label, box]) => {
+            if (box.indeterminate) updates[label] = 'ignore';
+            else if (box.checked) updates[label] = 'add';
+            else updates[label] = 'remove';
+        });
+
+        const promises = [];
+
+        selectedImages.forEach(path => {
+            const cardRef = allImageCards.find(c => c.path === path);
+            if (!cardRef) return;
+
+            let newLabels = new Set(cardRef.labels || []);
+
+            Object.entries(updates).forEach(([label, action]) => {
+                if (action === 'add') newLabels.add(label);
+                else if (action === 'remove') newLabels.delete(label);
+            });
+
+            const finalLabels = Array.from(newLabels);
+            promises.push(window.electronAPI.saveFileLabels(path, finalLabels).then(res => {
+                if (res.success) {
+                    cardRef.labels = finalLabels;
+                }
+                return res;
+            }));
+        });
+
+        await Promise.all(promises);
+
+        // Visual feedback
+        const originalText = saveLabelsBtn.textContent;
+        saveLabelsBtn.textContent = '保存完了!';
+        setTimeout(() => {
+            saveLabelsBtn.disabled = false;
+            saveLabelsBtn.textContent = '登録 (Save)';
+        }, 1000);
+
+        updateDetailsPane();
+
+    } catch (e) {
+        console.error(e);
+        alert('エラーが発生しました');
+        saveLabelsBtn.disabled = false;
+        saveLabelsBtn.textContent = '登録 (Save)';
+    }
+});
+
 
 function handleSelection(card, index, imagePath, event) {
     const isCtrl = event.ctrlKey || event.metaKey;
@@ -145,9 +245,9 @@ async function loadImages(folderPath) {
     updateDetailsPane();
 
     try {
-        const images = await window.electronAPI.getImages(folderPath);
+        const imagesData = await window.electronAPI.getImages(folderPath); // Returns objects now
 
-        if (images.length === 0) {
+        if (imagesData.length === 0) {
             imageGrid.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon">🏜️</div>
@@ -156,7 +256,10 @@ async function loadImages(folderPath) {
                 </div>`;
         } else {
             imageGrid.innerHTML = '';
-            images.forEach((imagePath, index) => {
+            imagesData.forEach((imgObj, index) => {
+                const imagePath = imgObj.path;
+                const labels = imgObj.labels || [];
+
                 const fileName = imagePath.split(/[\\/]/).pop();
                 const card = document.createElement('div');
                 card.className = 'image-card';
@@ -174,7 +277,7 @@ async function loadImages(folderPath) {
                 card.appendChild(img);
 
                 // Store reference
-                allImageCards.push({ element: card, path: imagePath });
+                allImageCards.push({ element: card, path: imagePath, labels: labels });
 
                 // Click to select
                 card.addEventListener('click', (e) => {

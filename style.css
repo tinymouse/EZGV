@@ -199,9 +199,15 @@ main {
 
 .image-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    /* auto-fill より auto-fit の方がスペースを埋める挙動が安定する場合が多い */
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-auto-rows: max-content;
+    /* 行の高さをコンテンツに合わせる */
     gap: 1.5rem;
     align-content: start;
+    /* 上詰め配置 */
+    width: 100%;
+    /* パディングは親のmain側で管理しているのでここでは不要だが、念のため残す場合は注意 */
     padding: 2rem;
 }
 
@@ -230,17 +236,25 @@ main {
     background: var(--card-bg);
     border-radius: 12px;
     overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
-    aspect-ratio: 1;
+    /* チェックボックス等の配置用 */
+    aspect-ratio: 1 / 1;
+    /* 正方形を強制 */
     cursor: pointer;
     border: 1px solid rgba(255, 255, 255, 0.05);
+    width: 100%;
+    /* 重なり防止のためbox-sizingを徹底 */
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .image-card:hover {
     transform: scale(1.03);
     border-color: rgba(56, 189, 248, 0.4);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    filter: brightness(1.1);
 }
 
 .image-card.selected {

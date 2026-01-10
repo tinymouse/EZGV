@@ -74,7 +74,7 @@ async function updateDetailsPane() {
         detailPreview.src = '';
         detailResolution.textContent = '-';
         detailFilesize.textContent = '-';
-        viewBtn.disabled = true;
+        viewBtn.disabled = false; // 複数選択でもComparison Viewとして有効化
     }
 }
 
@@ -183,8 +183,7 @@ async function loadImages(folderPath) {
 
                 // Double click to view
                 card.addEventListener('dblclick', () => {
-                    lightboxImg.src = `local-image://load?path=${encodedPath}`;
-                    lightbox.classList.remove('hidden');
+                    openLightbox([imagePath], 0, false);
                 });
 
                 imageGrid.appendChild(card);
@@ -203,13 +202,110 @@ async function loadImages(folderPath) {
     }
 }
 
+// Lightbox State
+const lightboxContent = document.getElementById('lightbox-content');
+const prevBtn = document.getElementById('prev-btn');
+const nextBtn = document.getElementById('next-btn');
+
+let lightboxImages = []; // Array of paths to show
+let currentLightboxIndex = 0; // Current start index
+let isSplitView = false; // 1 or 2 images
+
+function updateLightboxView() {
+    // Clear content
+    lightboxContent.innerHTML = '';
+
+    // Determine how many to show
+    const count = isSplitView ? 2 : 1;
+    const end = Math.min(currentLightboxIndex + count, lightboxImages.length);
+
+    // Add images
+    for (let i = currentLightboxIndex; i < end; i++) {
+        const path = lightboxImages[i];
+        const encodedPath = encodeURIComponent(path);
+        const img = document.createElement('img');
+        img.src = `local-image://load?path=${encodedPath}`;
+        img.className = 'lightbox-img';
+        lightboxContent.appendChild(img);
+    }
+
+    // Toggle split view class
+    if (isSplitView) {
+        lightboxContent.classList.add('split-view');
+    } else {
+        lightboxContent.classList.remove('split-view');
+    }
+
+    // Update Buttons
+    if (lightboxImages.length <= count) {
+        prevBtn.classList.add('hidden');
+        nextBtn.classList.add('hidden');
+    } else {
+        prevBtn.classList.remove('hidden');
+        nextBtn.classList.remove('hidden');
+
+        prevBtn.disabled = currentLightboxIndex === 0;
+        nextBtn.disabled = currentLightboxIndex + count >= lightboxImages.length;
+    }
+}
+
+function openLightbox(images, startIndex = 0, split = false) {
+    lightboxImages = images;
+    currentLightboxIndex = startIndex;
+    isSplitView = split;
+
+    updateLightboxView();
+    lightbox.classList.remove('hidden');
+}
+
+// Navigation Actions
+function navigateLightbox(direction) {
+    const step = isSplitView ? 2 : 1;
+    if (direction === 'next') {
+        if (currentLightboxIndex + step < lightboxImages.length) {
+            currentLightboxIndex += step;
+            updateLightboxView();
+        }
+    } else {
+        if (currentLightboxIndex - step >= 0) {
+            currentLightboxIndex -= step;
+            updateLightboxView();
+        }
+    }
+}
+
+prevBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigateLightbox('prev');
+});
+
+nextBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigateLightbox('next');
+});
+
+// Key Navigation
+document.addEventListener('keydown', (e) => {
+    if (lightbox.classList.contains('hidden')) return;
+
+    if (e.key === 'Escape') {
+        lightbox.classList.add('hidden');
+    } else if (e.key === 'ArrowRight') {
+        navigateLightbox('next');
+    } else if (e.key === 'ArrowLeft') {
+        navigateLightbox('prev');
+    }
+});
+
 // View Button Action
 viewBtn.addEventListener('click', () => {
-    if (selectedImages.size === 1) {
-        const path = Array.from(selectedImages)[0];
-        const encodedPath = encodeURIComponent(path);
-        lightboxImg.src = `local-image://load?path=${encodedPath}`;
-        lightbox.classList.remove('hidden');
+    const count = selectedImages.size;
+    if (count > 0) {
+        // Convert Set to Array
+        const images = Array.from(selectedImages);
+        // If multiple selected, open in split view (2 images per page)
+        // If single selected, open in single view
+        openLightbox(images, 0, count > 1);
     }
 });
 
@@ -226,14 +322,7 @@ closeLightbox.addEventListener('click', () => {
 });
 
 lightbox.addEventListener('click', (e) => {
-    if (e.target === lightbox) {
-        lightbox.classList.add('hidden');
-    }
-});
-
-// ESC key to close lightbox
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
+    if (e.target === lightbox || e.target === lightboxContent) {
         lightbox.classList.add('hidden');
     }
 });

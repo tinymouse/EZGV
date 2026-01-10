@@ -13,7 +13,7 @@
     "license": "ISC",
     "build": {
         "appId": "jp.tinymouse.ezgv",
-        "productName": "簡単画像管理 EZGV",
+        "productName": "簡単画像管理",
         "files": [
             "src/**/*"
         ],
@@ -27,7 +27,7 @@
         "nsis": {
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
-            "shortcutName": "簡単画像管理 EZGV"
+            "shortcutName": "簡単画像管理"
         }
     },
     "type": "commonjs",

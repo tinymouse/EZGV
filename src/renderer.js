@@ -211,6 +211,61 @@ let lightboxImages = []; // Array of paths to show
 let currentLightboxIndex = 0; // Current start index
 let isSplitView = false; // 1 or 2 images
 
+
+// Delete Logic
+async function deleteImage(path) {
+    if (!confirm('本当に削除しますか？\nこの操作は元に戻せる場合があります（ゴミ箱へ移動）。')) return;
+
+    try {
+        const result = await window.electronAPI.deleteFile(path);
+
+        if (result.success) {
+            // 1. Remove from data structures
+            const originalLength = lightboxImages.length;
+            lightboxImages = lightboxImages.filter(p => p !== path);
+            selectedImages.delete(path);
+
+            // 2. Remove from Thumbnail Grid
+            // Find component
+            const cardRefIndex = allImageCards.findIndex(c => c.path === path);
+            if (cardRefIndex !== -1) {
+                allImageCards[cardRefIndex].element.remove();
+                allImageCards.splice(cardRefIndex, 1);
+            }
+
+            // 3. Update Lightbox State
+            if (lightboxImages.length === 0) {
+                lightbox.classList.add('hidden');
+            } else {
+                // Adjust index if we deleted the last item or shifted boundaries
+                if (currentLightboxIndex >= lightboxImages.length) {
+                    currentLightboxIndex = Math.max(0, lightboxImages.length - 1);
+                }
+                // Or if we deleted the item at currentIndex, we stay at currentIndex (which is now the next item),
+                // unless split view logic requires adjustment.
+
+                // Ensure proper split view constraints
+                const maxIndex = lightboxImages.length - (isSplitView ? 2 : 1);
+                if (currentLightboxIndex > maxIndex) {
+                    currentLightboxIndex = Math.max(0, maxIndex);
+                }
+
+                updateLightboxView();
+            }
+
+            // 4. Update Details Pane
+            updateDetailsPane();
+
+        } else {
+            console.error(result.error);
+            alert('削除に失敗しました。');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('削除中にエラーが発生しました。');
+    }
+}
+
 function updateLightboxView() {
     // Clear content
     lightboxContent.innerHTML = '';
@@ -223,10 +278,30 @@ function updateLightboxView() {
     for (let i = currentLightboxIndex; i < end; i++) {
         const path = lightboxImages[i];
         const encodedPath = encodeURIComponent(path);
+
+        // Wrap in item container
+        const container = document.createElement('div');
+        container.className = 'lightbox-item';
+
+        // Image
         const img = document.createElement('img');
         img.src = `local-image://load?path=${encodedPath}`;
         img.className = 'lightbox-img';
-        lightboxContent.appendChild(img);
+
+        // Delete Button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>`;
+        delBtn.title = 'ゴミ箱へ移動';
+
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteImage(path);
+        });
+
+        container.appendChild(img);
+        container.appendChild(delBtn);
+        lightboxContent.appendChild(container);
     }
 
     // Toggle split view class

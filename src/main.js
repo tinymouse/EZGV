@@ -1,6 +1,16 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+ipcMain.handle('delete-file', async (event, filePath) => {
+    try {
+        await shell.trashItem(filePath);
+        return { success: true };
+    } catch (error) {
+        console.error('Trash item failed:', error);
+        return { success: false, error: error.message };
+    }
+});
 const url = require('url');
 
 // 1. プロトコルの特権登録 (アプリの準備が整う前に必要)

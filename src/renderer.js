@@ -237,7 +237,7 @@ function updateLightboxView() {
     }
 
     // Update Buttons
-    if (lightboxImages.length <= count) {
+    if (lightboxImages.length <= 1) {
         prevBtn.classList.add('hidden');
         nextBtn.classList.add('hidden');
     } else {
@@ -245,13 +245,21 @@ function updateLightboxView() {
         nextBtn.classList.remove('hidden');
 
         prevBtn.disabled = currentLightboxIndex === 0;
-        nextBtn.disabled = currentLightboxIndex + count >= lightboxImages.length;
+
+        // Next button disabled logic
+        // Split view (2 images): Stop when current index is at length - 2 (showing [len-2, len-1])
+        // Single view (1 image): Stop when current index is at length - 1 (showing [len-1])
+        const maxIndex = lightboxImages.length - (isSplitView ? 2 : 1);
+        nextBtn.disabled = currentLightboxIndex >= maxIndex;
     }
 }
 
 function openLightbox(images, startIndex = 0, split = false) {
     lightboxImages = images;
-    currentLightboxIndex = startIndex;
+    // Ensure start index is valid
+    const maxIndex = images.length - (split ? 2 : 1);
+    currentLightboxIndex = Math.min(startIndex, Math.max(0, maxIndex));
+
     isSplitView = split;
 
     updateLightboxView();
@@ -260,9 +268,11 @@ function openLightbox(images, startIndex = 0, split = false) {
 
 // Navigation Actions
 function navigateLightbox(direction) {
-    const step = isSplitView ? 2 : 1;
+    const step = 1;
+    const maxIndex = lightboxImages.length - (isSplitView ? 2 : 1);
+
     if (direction === 'next') {
-        if (currentLightboxIndex + step < lightboxImages.length) {
+        if (currentLightboxIndex < maxIndex) {
             currentLightboxIndex += step;
             updateLightboxView();
         }

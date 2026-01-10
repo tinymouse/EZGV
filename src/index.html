@@ -28,13 +28,43 @@
         </header>
 
         <div class="main-content">
-            <main id="image-grid" class="image-grid">
-                <div class="empty-state">
-                    <div class="empty-icon">📂</div>
-                    <h2>フォルダを選択してください</h2>
-                    <p>指定したフォルダ内の画像（サブフォルダ含む）がここに表示されます</p>
+            <div class="view-area">
+                <div id="search-pane" class="search-pane">
+                    <div class="search-controls">
+                        <div class="filter-group">
+                            <span class="filter-label">絞込条件:</span>
+                            <div class="filter-checkboxes">
+                                <label class="filter-check-item">
+                                    <input type="checkbox" id="filter-person" value="人物"> 人物
+                                </label>
+                                <label class="filter-check-item">
+                                    <input type="checkbox" id="filter-landscape" value="風景"> 風景
+                                </label>
+                                <label class="filter-check-item">
+                                    <input type="checkbox" id="filter-single" value="一人"> 一人
+                                </label>
+                                <label class="filter-check-item">
+                                    <input type="checkbox" id="filter-multiple" value="複数"> 複数
+                                </label>
+                            </div>
+                        </div>
+                        <button id="filter-btn" class="primary-btn search-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                            </svg>
+                            絞込 (Filter)
+                        </button>
+                    </div>
                 </div>
-            </main>
+                <main id="image-grid" class="image-grid">
+                    <div class="empty-state">
+                        <div class="empty-icon">📂</div>
+                        <h2>フォルダを選択してください</h2>
+                        <p>指定したフォルダ内の画像（サブフォルダ含む）がここに表示されます</p>
+                    </div>
+                </main>
+            </div>
 
             <aside class="details-pane">
                 <div id="details-content" class="details-content hidden">
@@ -54,7 +84,7 @@
                         <label>File Size</label>
                         <span id="detail-filesize">-</span>
                     </div>
-                    
+
                     <div class="detail-item label-section">
                         <label>Labels</label>
                         <div id="label-container" class="label-container">
@@ -67,11 +97,16 @@
                                 <label for="label-landscape">風景 (Landscape)</label>
                             </div>
                             <div class="label-row">
-                                <input type="checkbox" id="label-system" value="システム">
-                                <label for="label-system">システム (System)</label>
+                                <input type="checkbox" id="label-single" value="一人">
+                                <label for="label-single">一人 (Single)</label>
+                            </div>
+                            <div class="label-row">
+                                <input type="checkbox" id="label-multiple" value="複数">
+                                <label for="label-multiple">複数 (Multiple)</label>
                             </div>
                         </div>
-                        <button id="save-labels-btn" class="secondary-btn" style="margin-top: 10px; width: 100%;">登録 (Save)</button>
+                        <button id="save-labels-btn" class="secondary-btn" style="margin-top: 10px; width: 100%;">登録
+                            (Save)</button>
                     </div>
 
                     <button id="view-btn" class="primary-btn view-btn">

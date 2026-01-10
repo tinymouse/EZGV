@@ -15,16 +15,26 @@ const detailFilesize = document.getElementById('detail-filesize');
 const viewBtn = document.getElementById('view-btn');
 
 // State
+let allImagesData = []; // Store raw data from main process
 let allImageCards = []; // Store references for Shift+Click
 let selectedImages = new Set(); // Store paths
 let lastSelectedCardIndex = -1; // For Shift+Click range
 
 const saveLabelsBtn = document.getElementById('save-labels-btn');
+const filterBtn = document.getElementById('filter-btn');
 
 const labelCheckboxes = {
     '人物': document.getElementById('label-person'),
     '風景': document.getElementById('label-landscape'),
-    'システム': document.getElementById('label-system')
+    '一人': document.getElementById('label-single'),
+    '複数': document.getElementById('label-multiple')
+};
+
+const filterCheckboxes = {
+    '人物': document.getElementById('filter-person'),
+    '風景': document.getElementById('filter-landscape'),
+    '一人': document.getElementById('filter-single'),
+    '複数': document.getElementById('filter-multiple')
 };
 
 function formatBytes(bytes, decimals = 2) {
@@ -152,6 +162,9 @@ saveLabelsBtn.addEventListener('click', async () => {
             promises.push(window.electronAPI.saveFileLabels(path, finalLabels).then(res => {
                 if (res.success) {
                     cardRef.labels = finalLabels;
+                    // Also update allImagesData
+                    const dataItem = allImagesData.find(d => d.path === path);
+                    if (dataItem) dataItem.labels = finalLabels;
                 }
                 return res;
             }));
@@ -168,7 +181,7 @@ saveLabelsBtn.addEventListener('click', async () => {
         }, 1000);
 
         updateDetailsPane();
-
+        applyFilters(); // Re-apply filter in case labels changed
     } catch (e) {
         console.error(e);
         alert('エラーが発生しました');
@@ -176,6 +189,25 @@ saveLabelsBtn.addEventListener('click', async () => {
         saveLabelsBtn.textContent = '登録 (Save)';
     }
 });
+
+filterBtn.addEventListener('click', () => {
+    applyFilters();
+});
+
+function applyFilters() {
+    const activeFilters = Object.entries(filterCheckboxes)
+        .filter(([label, box]) => box.checked)
+        .map(([label, box]) => label);
+
+    if (activeFilters.length === 0) {
+        renderGrid(allImagesData);
+    } else {
+        const filtered = allImagesData.filter(img =>
+            activeFilters.every(f => img.labels && img.labels.includes(f))
+        );
+        renderGrid(filtered);
+    }
+}
 
 
 function handleSelection(card, index, imagePath, event) {
@@ -232,66 +264,71 @@ function handleSelection(card, index, imagePath, event) {
     updateDetailsPane();
 }
 
+function renderGrid(data) {
+    // Reset selection state when re-rendering filtered list?
+    // Usually better to keep it if possible, but simpler to clear if indices change.
+    selectedImages.clear();
+    allImageCards = [];
+    lastSelectedCardIndex = -1;
+    imageGrid.innerHTML = '';
+    updateDetailsPane();
+
+    if (data.length === 0) {
+        imageGrid.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🏜️</div>
+                <h2>画像が見つかりませんでした</h2>
+                <p>条件に一致する画像がありません</p>
+            </div>`;
+    } else {
+        data.forEach((imgObj, index) => {
+            const imagePath = imgObj.path;
+            const labels = imgObj.labels || [];
+
+            const fileName = imagePath.split(/[\\/]/).pop();
+            const card = document.createElement('div');
+            card.className = 'image-card';
+            card.setAttribute('data-name', fileName);
+
+            const checkbox = document.createElement('div');
+            checkbox.className = 'checkbox-overlay';
+            card.appendChild(checkbox);
+
+            const img = document.createElement('img');
+            const encodedPath = encodeURIComponent(imagePath);
+            img.src = `local-image://load?path=${encodedPath}`;
+            img.loading = 'lazy';
+
+            card.appendChild(img);
+
+            // Store reference
+            allImageCards.push({ element: card, path: imagePath, labels: labels });
+
+            // Click to select
+            card.addEventListener('click', (e) => {
+                handleSelection(card, index, imagePath, e);
+            });
+
+            // Double click to view
+            card.addEventListener('dblclick', () => {
+                openLightbox([imagePath], 0, false);
+            });
+
+            imageGrid.appendChild(card);
+        });
+    }
+}
+
 async function loadImages(folderPath) {
     if (!folderPath) return;
 
     loadingOverlay.classList.remove('hidden');
     folderPathDisplay.textContent = folderPath;
 
-    // Reset state
-    selectedImages.clear();
-    allImageCards = [];
-    lastSelectedCardIndex = -1;
-    updateDetailsPane();
-
     try {
         const imagesData = await window.electronAPI.getImages(folderPath); // Returns objects now
-
-        if (imagesData.length === 0) {
-            imageGrid.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">🏜️</div>
-                    <h2>画像が見つかりませんでした</h2>
-                    <p>このフォルダー内には対応する形式の画像がありません</p>
-                </div>`;
-        } else {
-            imageGrid.innerHTML = '';
-            imagesData.forEach((imgObj, index) => {
-                const imagePath = imgObj.path;
-                const labels = imgObj.labels || [];
-
-                const fileName = imagePath.split(/[\\/]/).pop();
-                const card = document.createElement('div');
-                card.className = 'image-card';
-                card.setAttribute('data-name', fileName);
-
-                const checkbox = document.createElement('div');
-                checkbox.className = 'checkbox-overlay';
-                card.appendChild(checkbox);
-
-                const img = document.createElement('img');
-                const encodedPath = encodeURIComponent(imagePath);
-                img.src = `local-image://load?path=${encodedPath}`;
-                img.loading = 'lazy';
-
-                card.appendChild(img);
-
-                // Store reference
-                allImageCards.push({ element: card, path: imagePath, labels: labels });
-
-                // Click to select
-                card.addEventListener('click', (e) => {
-                    handleSelection(card, index, imagePath, e);
-                });
-
-                // Double click to view
-                card.addEventListener('dblclick', () => {
-                    openLightbox([imagePath], 0, false);
-                });
-
-                imageGrid.appendChild(card);
-            });
-        }
+        allImagesData = imagesData; // Save to state
+        renderGrid(allImagesData);
     } catch (error) {
         console.error('Failed to load images:', error);
         imageGrid.innerHTML = `
@@ -327,6 +364,7 @@ async function deleteImage(path) {
             const originalLength = lightboxImages.length;
             lightboxImages = lightboxImages.filter(p => p !== path);
             selectedImages.delete(path);
+            allImagesData = allImagesData.filter(d => d.path !== path);
 
             // 2. Remove from Thumbnail Grid
             // Find component

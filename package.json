@@ -1,19 +1,24 @@
 {
     "name": "ezgv",
     "version": "0.9.0",
-    "description": "",
+    "description": "簡単画像管理",
     "main": "src/main.js",
+    "type": "commonjs",
+    "devDependencies": {
+        "electron": "^39.2.7",
+        "electron-builder": "^26.4.0"
+    },
     "scripts": {
         "start": "electron .",
         "build": "electron-builder",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
-    "keywords": [],
     "author": "Tiny Mouse",
     "license": "ISC",
     "build": {
         "appId": "jp.tinymouse.ezgv",
         "productName": "簡単画像管理",
+        "copyright": "Copyright © 2026 Tiny Mouse",
         "files": [
             "src/**/*"
         ],
@@ -22,19 +27,12 @@
         },
         "win": {
             "target": "nsis",
-            "icon": "icon.ico"
+            "icon": "res/icon/icon.png"
         },
         "nsis": {
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
             "shortcutName": "簡単画像管理"
         }
-    },
-    "type": "commonjs",
-    "devDependencies": {
-        "electron": "^39.2.7",
-        "electron-builder": "^26.4.0",
-        "png-to-ico": "^3.0.1",
-        "png2icons": "^2.0.1"
     }
 }

@@ -59,6 +59,7 @@ function createWindow() {
         x: windowState.x,
         y: windowState.y,
         webPreferences: {
+            // preload.js is in the same directory as main.js now
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false
@@ -70,7 +71,8 @@ function createWindow() {
         mainWindow.maximize();
     }
 
-    mainWindow.loadFile('index.html');
+    // index.html is also in the same directory (src)
+    mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
     // Remove menu
     mainWindow.setMenu(null);

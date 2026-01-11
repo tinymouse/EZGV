@@ -6,5 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getImages: (folderPath) => ipcRenderer.invoke('get-images', folderPath),
     getFileDetails: (filePath) => ipcRenderer.invoke('get-file-details', filePath),
     deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+    selectMoveDestination: () => ipcRenderer.invoke('select-move-destination'),
+    moveFile: (srcPath, destDir) => ipcRenderer.invoke('move-file', { srcPath, destDir }),
     saveFileLabels: (filePath, labels) => ipcRenderer.invoke('save-file-labels', { filePath, labels })
 });

@@ -143,6 +143,22 @@ ipcMain.handle('select-folder', async () => {
     return null;
 });
 
+ipcMain.handle('select-move-destination', async () => {
+    const settings = loadSettings();
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: '移動先フォルダを選択',
+        properties: ['openDirectory'],
+        defaultPath: settings.lastMoveDir || settings.lastFolder || app.getPath('pictures')
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+        const selectedPath = result.filePaths[0];
+        saveSettings({ lastMoveDir: selectedPath });
+        return selectedPath;
+    }
+    return null;
+});
+
 ipcMain.handle('get-last-folder', () => {
     const settings = loadSettings();
     return settings.lastFolder || null;
@@ -198,6 +214,32 @@ ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
         return { success: true };
     } catch (e) {
         console.error('Failed to save labels:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('move-file', async (event, { srcPath, destDir }) => {
+    try {
+        if (!fs.existsSync(destDir)) {
+            return { success: false, error: '移動先フォルダが存在しません。' };
+        }
+
+        const fileName = path.basename(srcPath);
+        const destPath = path.join(destDir, fileName);
+
+        // Move the image
+        fs.renameSync(srcPath, destPath);
+
+        // Move label file if exists
+        const srcLabel = getLabelFilePath(srcPath);
+        if (fs.existsSync(srcLabel)) {
+            const destLabel = getLabelFilePath(destPath);
+            fs.renameSync(srcLabel, destLabel);
+        }
+
+        return { success: true };
+    } catch (e) {
+        console.error('Failed to move file:', e);
         return { success: false, error: e.message };
     }
 });

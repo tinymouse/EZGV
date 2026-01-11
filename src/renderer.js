@@ -406,6 +406,27 @@ async function deleteImage(path) {
     }
 }
 
+// Move Logic for Lightbox
+async function moveImage(path) {
+    try {
+        const destDir = await window.electronAPI.selectMoveDestination();
+        if (!destDir) return; // Canceled
+
+        const result = await window.electronAPI.moveFile(path, destDir);
+
+        if (result.success) {
+            removeFileFromUI(path);
+            finalizeDeletionUpdates();
+        } else {
+            console.error(result.error);
+            alert(`移動に失敗しました: ${result.error}`);
+        }
+    } catch (e) {
+        console.error(e);
+        alert('移動中にエラーが発生しました。');
+    }
+}
+
 function updateLightboxView() {
     // Clear content
     lightboxContent.innerHTML = '';
@@ -439,8 +460,20 @@ function updateLightboxView() {
             deleteImage(path);
         });
 
+        // Move Button
+        const moveBtn = document.createElement('button');
+        moveBtn.className = 'move-btn';
+        moveBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>`;
+        moveBtn.title = 'フォルダを移動';
+
+        moveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            moveImage(path);
+        });
+
         container.appendChild(img);
         container.appendChild(delBtn);
+        container.appendChild(moveBtn);
         lightboxContent.appendChild(container);
     }
 

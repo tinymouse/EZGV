@@ -164,6 +164,17 @@ ipcMain.handle('get-last-folder', () => {
     return settings.lastFolder || null;
 });
 
+ipcMain.handle('get-master-labels', () => {
+    const settings = loadSettings();
+    // Default labels as requested if none exist
+    return settings.masterLabels || ['人物', '風景', '一人', '複数'];
+});
+
+ipcMain.handle('save-master-labels', (event, labels) => {
+    saveSettings({ masterLabels: labels });
+    return { success: true };
+});
+
 ipcMain.handle('get-file-details', async (event, filePath) => {
     try {
         const stats = fs.statSync(filePath);

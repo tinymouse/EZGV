@@ -33,28 +33,28 @@
                     <div class="search-controls">
                         <div class="filter-group">
                             <span class="filter-label">絞込条件:</span>
-                            <div class="filter-checkboxes">
-                                <label class="filter-check-item">
-                                    <input type="checkbox" id="filter-person" value="人物"> 人物
-                                </label>
-                                <label class="filter-check-item">
-                                    <input type="checkbox" id="filter-landscape" value="風景"> 風景
-                                </label>
-                                <label class="filter-check-item">
-                                    <input type="checkbox" id="filter-single" value="一人"> 一人
-                                </label>
-                                <label class="filter-check-item">
-                                    <input type="checkbox" id="filter-multiple" value="複数"> 複数
-                                </label>
+                            <div id="filter-checkboxes" class="filter-checkboxes">
+                                <!-- Dynamically generated -->
                             </div>
                         </div>
-                        <button id="filter-btn" class="primary-btn search-btn">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                            </svg>
-                            絞込 (Filter)
-                        </button>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button id="filter-btn" class="primary-btn search-btn">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                                </svg>
+                                絞込 (Filter)
+                            </button>
+                            <button id="open-settings-btn" class="secondary-btn icon-btn" title="ラベル管理">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path
+                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                    </path>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <main id="image-grid" class="image-grid">
@@ -121,22 +121,7 @@
                     <div class="detail-item label-section">
                         <label>Labels</label>
                         <div id="label-container" class="label-container">
-                            <div class="label-row">
-                                <input type="checkbox" id="label-person" value="人物">
-                                <label for="label-person">人物 (Person)</label>
-                            </div>
-                            <div class="label-row">
-                                <input type="checkbox" id="label-landscape" value="風景">
-                                <label for="label-landscape">風景 (Landscape)</label>
-                            </div>
-                            <div class="label-row">
-                                <input type="checkbox" id="label-single" value="一人">
-                                <label for="label-single">一人 (Single)</label>
-                            </div>
-                            <div class="label-row">
-                                <input type="checkbox" id="label-multiple" value="複数">
-                                <label for="label-multiple">複数 (Multiple)</label>
-                            </div>
+                            <!-- Dynamically generated -->
                         </div>
                         <button id="save-labels-btn" class="secondary-btn" style="margin-top: 10px; width: 100%;">登録
                             (Save)</button>
@@ -151,6 +136,29 @@
         <div id="loading" class="loading-overlay hidden">
             <div class="loader"></div>
             <p>画像を読み込み中...</p>
+        </div>
+    </div>
+
+    <!-- Label Management Modal -->
+    <div id="label-modal" class="lightbox hidden">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>ラベル管理</h2>
+                <span id="close-modal-btn" class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="master-label-list" class="master-label-list">
+                    <!-- Labels rows here -->
+                </div>
+                <button id="add-master-label-btn" class="secondary-btn" style="width: 100%; margin-top: 1rem;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    ラベルを追加
+                </button>
+            </div>
         </div>
     </div>
 

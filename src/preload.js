@@ -8,5 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
     selectMoveDestination: () => ipcRenderer.invoke('select-move-destination'),
     moveFile: (srcPath, destDir) => ipcRenderer.invoke('move-file', { srcPath, destDir }),
-    saveFileLabels: (filePath, labels) => ipcRenderer.invoke('save-file-labels', { filePath, labels })
+    saveFileLabels: (filePath, labels) => ipcRenderer.invoke('save-file-labels', { filePath, labels }),
+    getMasterLabels: () => ipcRenderer.invoke('get-master-labels'),
+    saveMasterLabels: (labels) => ipcRenderer.invoke('save-master-labels', labels)
 });

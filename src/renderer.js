@@ -21,23 +21,76 @@ let allImagesData = []; // Store raw data from main process
 let allImageCards = []; // Store references for Shift+Click
 let selectedImages = new Set(); // Store paths
 let lastSelectedCardIndex = -1; // For Shift+Click range
+let masterLabels = []; // Loaded from settings
 
 const saveLabelsBtn = document.getElementById('save-labels-btn');
 const filterBtn = document.getElementById('filter-btn');
+const openSettingsBtn = document.getElementById('open-settings-btn');
+const labelModal = document.getElementById('label-modal');
+const closeModalBtn = document.getElementById('close-modal-btn');
+const masterLabelList = document.getElementById('master-label-list');
+const addMasterLabelBtn = document.getElementById('add-master-label-btn');
 
-const labelCheckboxes = {
-    '人物': document.getElementById('label-person'),
-    '風景': document.getElementById('label-landscape'),
-    '一人': document.getElementById('label-single'),
-    '複数': document.getElementById('label-multiple')
-};
+const filterContainer = document.getElementById('filter-checkboxes');
+const detailLabelContainer = document.getElementById('label-container');
 
-const filterCheckboxes = {
-    '人物': document.getElementById('filter-person'),
-    '風景': document.getElementById('filter-landscape'),
-    '一人': document.getElementById('filter-single'),
-    '複数': document.getElementById('filter-multiple')
-};
+async function loadMasterLabels() {
+    masterLabels = await window.electronAPI.getMasterLabels();
+    renderDynamicLabels();
+}
+
+function renderDynamicLabels() {
+    // Collect all labels currently present in the loaded images data
+    const adhocLabels = new Set();
+    allImagesData.forEach(img => {
+        if (img.labels) {
+            img.labels.forEach(l => adhocLabels.add(l));
+        }
+    });
+
+    // Merge with master labels (Master labels first, then sorted adhoc labels)
+    const displayLabels = Array.from(new Set([...masterLabels, ...Array.from(adhocLabels).sort()]));
+
+    // 1. Search Pane
+    filterContainer.innerHTML = '';
+    displayLabels.forEach(label => {
+        const item = document.createElement('label');
+        item.className = 'filter-check-item';
+        item.innerHTML = `<input type="checkbox" data-label="${label}"> ${label}`;
+        filterContainer.appendChild(item);
+    });
+
+    // 2. Details Pane
+    detailLabelContainer.innerHTML = '';
+    displayLabels.forEach(label => {
+        const row = document.createElement('div');
+        row.className = 'label-row';
+        row.innerHTML = `
+            <input type="checkbox" id="label-${label}" data-label="${label}">
+            <label for="label-${label}">${label}</label>
+        `;
+        detailLabelContainer.appendChild(row);
+    });
+
+    // Re-sync UI state if images are selected
+    updateDetailsPane();
+}
+
+function getFilterCheckboxes() {
+    return Array.from(filterContainer.querySelectorAll('input[type="checkbox"]'))
+        .reduce((acc, input) => {
+            acc[input.getAttribute('data-label')] = input;
+            return acc;
+        }, {});
+}
+
+function getDetailCheckboxes() {
+    return Array.from(detailLabelContainer.querySelectorAll('input[type="checkbox"]'))
+        .reduce((acc, input) => {
+            acc[input.getAttribute('data-label')] = input;
+            return acc;
+        }, {});
+}
 
 function formatBytes(bytes, decimals = 2) {
     if (!+bytes) return '0 Bytes';
@@ -98,15 +151,15 @@ async function updateDetailsPane() {
     }
 
     // Update Labels
-    Object.keys(labelCheckboxes).forEach(key => {
-        const checkbox = labelCheckboxes[key];
+    const currentDetailCheckboxes = getDetailCheckboxes();
+    Object.values(currentDetailCheckboxes).forEach(checkbox => {
         checkbox.checked = false;
         checkbox.indeterminate = false;
     });
 
     if (count > 0) {
-        Object.keys(labelCheckboxes).forEach(labelName => {
-            const checkbox = labelCheckboxes[labelName];
+        Object.keys(currentDetailCheckboxes).forEach(labelName => {
+            const checkbox = currentDetailCheckboxes[labelName];
             let matchCount = 0;
 
             selectedImages.forEach(path => {
@@ -141,7 +194,8 @@ saveLabelsBtn.addEventListener('click', async () => {
 
     try {
         const updates = {};
-        Object.entries(labelCheckboxes).forEach(([label, box]) => {
+        const currentDetailCheckboxes = getDetailCheckboxes();
+        Object.entries(currentDetailCheckboxes).forEach(([label, box]) => {
             if (box.indeterminate) updates[label] = 'ignore';
             else if (box.checked) updates[label] = 'add';
             else updates[label] = 'remove';
@@ -183,6 +237,7 @@ saveLabelsBtn.addEventListener('click', async () => {
         }, 1000);
 
         updateDetailsPane();
+        renderDynamicLabels(); // Refresh label list (adds new ad-hoc labels)
         applyFilters(); // Re-apply filter in case labels changed
     } catch (e) {
         console.error(e);
@@ -197,7 +252,8 @@ filterBtn.addEventListener('click', () => {
 });
 
 function applyFilters() {
-    const activeFilters = Object.entries(filterCheckboxes)
+    const currentFilterCheckboxes = getFilterCheckboxes();
+    const activeFilters = Object.entries(currentFilterCheckboxes)
         .filter(([label, box]) => box.checked)
         .map(([label, box]) => label);
 
@@ -330,6 +386,7 @@ async function loadImages(folderPath) {
     try {
         const imagesData = await window.electronAPI.getImages(folderPath); // Returns objects now
         allImagesData = imagesData; // Save to state
+        renderDynamicLabels();
         renderGrid(allImagesData);
     } catch (error) {
         console.error('Failed to load images:', error);
@@ -360,6 +417,7 @@ function removeFileFromUI(path) {
     allImagesData = allImagesData.filter(d => d.path !== path);
     selectedImages.delete(path);
     lightboxImages = lightboxImages.filter(p => p !== path);
+    renderDynamicLabels(); // Refresh in case an ad-hoc label is no longer used
 
     // Grid Element
     const cardRefIndex = allImageCards.findIndex(c => c.path === path);
@@ -635,8 +693,64 @@ lightbox.addEventListener('click', (e) => {
 
 // Initialize
 window.addEventListener('DOMContentLoaded', async () => {
+    await loadMasterLabels();
     const lastFolder = await window.electronAPI.getLastFolder();
     if (lastFolder) {
         loadImages(lastFolder);
+    }
+});
+
+// Label Management Modal Logic
+openSettingsBtn.addEventListener('click', () => {
+    renderMasterLabelList();
+    labelModal.classList.remove('hidden');
+});
+
+closeModalBtn.addEventListener('click', async () => {
+    const inputs = masterLabelList.querySelectorAll('.master-label-input');
+    const newLabels = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+
+    await window.electronAPI.saveMasterLabels(newLabels);
+    masterLabels = newLabels;
+    renderDynamicLabels();
+
+    labelModal.classList.add('hidden');
+});
+
+addMasterLabelBtn.addEventListener('click', () => {
+    const row = createMasterLabelRow('新しいラベル', true);
+    masterLabelList.appendChild(row);
+    const input = row.querySelector('input');
+    input.focus();
+    input.select();
+});
+
+function createMasterLabelRow(label, editable = false) {
+    const div = document.createElement('div');
+    div.className = 'master-label-item';
+    if (!editable) div.classList.add('readonly');
+
+    div.innerHTML = `
+        <input type="text" class="master-label-input" value="${label}" ${editable ? '' : 'readonly'}>
+        <span class="delete-label-btn" title="削除">&times;</span>
+    `;
+
+    div.querySelector('.delete-label-btn').addEventListener('click', () => {
+        div.remove();
+    });
+
+    return div;
+}
+
+function renderMasterLabelList() {
+    masterLabelList.innerHTML = '';
+    masterLabels.forEach(label => {
+        masterLabelList.appendChild(createMasterLabelRow(label, false));
+    });
+}
+
+labelModal.addEventListener('click', (e) => {
+    if (e.target === labelModal) {
+        closeModalBtn.click();
     }
 });

@@ -760,3 +760,120 @@ main {
 .move-selection-btn svg {
     margin-right: 4px;
 }
+
+/* Modal and Label Management */
+.icon-btn {
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-container {
+    background: var(--bg-color);
+    width: 400px;
+    max-height: 80vh;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalScale {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.close-modal {
+    font-size: 2rem;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.close-modal:hover {
+    opacity: 1;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.master-label-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.master-label-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+}
+
+.master-label-item:focus-within {
+    border-color: var(--accent-color);
+    background: rgba(56, 189, 248, 0.05);
+}
+
+.master-label-item.readonly {
+    opacity: 0.8;
+}
+
+.master-label-item.readonly .master-label-input {
+    cursor: default;
+}
+
+.master-label-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1rem;
+    outline: none;
+}
+
+.delete-label-btn {
+    opacity: 0.3;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #ef4444;
+}
+
+.master-label-item:hover .delete-label-btn {
+    opacity: 1;
+}
+
+.delete-label-btn:hover {
+    transform: scale(1.1);
+}

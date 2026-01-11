@@ -205,7 +205,7 @@ ipcMain.handle('save-gemini-api-key', (event, key) => {
 
 ipcMain.handle('get-gemini-model', () => {
     const settings = loadSettings();
-    return settings.geminiModel || 'gemini-1.5-flash';
+    return settings.geminiModel || 'gemini-2.5-flash';
 });
 
 ipcMain.handle('save-gemini-model', (event, model) => {
@@ -217,7 +217,7 @@ ipcMain.handle('auto-label-image', async (event, { filePath, masterLabels }) => 
     try {
         const settings = loadSettings();
         const apiKey = settings.geminiApiKey;
-        const modelName = settings.geminiModel || 'gemini-1.5-flash';
+        const modelName = settings.geminiModel || 'gemini-2.5-flash';
 
         if (!apiKey) throw new Error('Gemini APIキーが設定されていません。管理画面の「AI設定」で設定してください。');
 

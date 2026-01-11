@@ -159,52 +159,7 @@ main {
     gap: 1rem;
 }
 
-.filter-check-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.9rem;
-    cursor: pointer;
-    user-select: none;
-    padding: 0.4rem 0.75rem;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    border: 1px solid transparent;
-    transition: all 0.2s;
-}
 
-.filter-check-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.filter-check-item input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--text-secondary);
-    border-radius: 3px;
-    background: transparent;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.2s;
-}
-
-.filter-check-item input[type="checkbox"]:checked {
-    background: var(--accent-color);
-    border-color: var(--accent-color);
-}
-
-.filter-check-item input[type="checkbox"]:checked::after {
-    content: '✔';
-    font-size: 11px;
-    color: #0f172a;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-weight: 900;
-}
 
 .search-btn {
     padding: 0.5rem 1.5rem;

@@ -94,21 +94,24 @@ function renderDynamicLabels() {
         listDiv.className = isFilterView ? 'filter-checkboxes' : 'label-container';
 
         labelNames.forEach(label => {
+            const row = document.createElement('div');
+            row.className = 'label-row';
+            const prefix = isFilterView ? 'filter' : 'detail';
+            const id = `${prefix}-label-${label}`;
+
             if (isFilterView) {
-                const item = document.createElement('label');
-                item.className = 'filter-check-item';
                 const isChecked = previouslyChecked.includes(label);
-                item.innerHTML = `<input type="checkbox" data-label="${label}" ${isChecked ? 'checked' : ''}> ${label}`;
-                listDiv.appendChild(item);
-            } else {
-                const row = document.createElement('div');
-                row.className = 'label-row';
                 row.innerHTML = `
-                    <input type="checkbox" id="label-${label}" data-label="${label}">
-                    <label for="label-${label}">${label}</label>
+                    <input type="checkbox" id="${id}" data-label="${label}" ${isChecked ? 'checked' : ''}>
+                    <label for="${id}">${label}</label>
                 `;
-                listDiv.appendChild(row);
+            } else {
+                row.innerHTML = `
+                    <input type="checkbox" id="${id}" data-label="${label}">
+                    <label for="${id}">${label}</label>
+                `;
             }
+            listDiv.appendChild(row);
         });
 
         groupDiv.appendChild(listDiv);

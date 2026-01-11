@@ -166,11 +166,28 @@ ipcMain.handle('get-last-folder', () => {
 
 ipcMain.handle('get-master-labels', () => {
     const settings = loadSettings();
-    // Default labels as requested if none exist
-    return settings.masterLabels || ['人物', '風景', '一人', '複数'];
+    const defaults = [
+        { name: '人物', group: '基本' },
+        { name: '風景', group: '基本' },
+        { name: '一人', group: '人数' },
+        { name: '複数', group: '人数' }
+    ];
+
+    if (!settings.masterLabels) return defaults;
+
+    // Migration: if it's strings, convert to objects
+    if (settings.masterLabels.length > 0 && typeof settings.masterLabels[0] === 'string') {
+        return settings.masterLabels.map(name => {
+            const def = defaults.find(d => d.name === name);
+            return { name, group: def ? def.group : '未分類' };
+        });
+    }
+
+    return settings.masterLabels;
 });
 
 ipcMain.handle('save-master-labels', (event, labels) => {
+    // labels: [{ name, group }, ...]
     saveSettings({ masterLabels: labels });
     return { success: true };
 });

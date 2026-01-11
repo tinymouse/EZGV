@@ -48,34 +48,82 @@ function renderDynamicLabels() {
         }
     });
 
-    // Merge with master labels (Master labels first, then sorted adhoc labels)
-    const displayLabels = Array.from(new Set([...masterLabels, ...Array.from(adhocLabels).sort()]));
+    // Grouping structure: { groupName: [labelName, ...] }
+    const groups = {};
 
-    // 1. Search Pane
+    // First, initialize with master labels
+    masterLabels.forEach(l => {
+        if (!groups[l.group]) groups[l.group] = [];
+        groups[l.group].push(l.name);
+    });
+
+    // Then, add adhoc labels that aren't in master labels
+    const masterNames = new Set(masterLabels.map(l => l.name));
+    Array.from(adhocLabels).sort().forEach(label => {
+        if (!masterNames.has(label)) {
+            if (!groups['未分類']) groups['未分類'] = [];
+            groups['未分類'].push(label);
+        }
+    });
+
     // Save current filter state to restore after re-render
     const currentFilters = getFilterCheckboxes();
     const previouslyChecked = Object.keys(currentFilters).filter(label => currentFilters[label].checked);
 
+    // Helper to create a group container
+    function createGroupUI(groupName, labelNames, isFilterView) {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'label-group';
+
+        const title = document.createElement('div');
+        title.className = 'group-title';
+        title.textContent = groupName;
+        groupDiv.appendChild(title);
+
+        const listDiv = document.createElement('div');
+        listDiv.className = isFilterView ? 'filter-checkboxes' : 'label-container';
+
+        labelNames.forEach(label => {
+            if (isFilterView) {
+                const item = document.createElement('label');
+                item.className = 'filter-check-item';
+                const isChecked = previouslyChecked.includes(label);
+                item.innerHTML = `<input type="checkbox" data-label="${label}" ${isChecked ? 'checked' : ''}> ${label}`;
+                listDiv.appendChild(item);
+            } else {
+                const row = document.createElement('div');
+                row.className = 'label-row';
+                row.innerHTML = `
+                    <input type="checkbox" id="label-${label}" data-label="${label}">
+                    <label for="label-${label}">${label}</label>
+                `;
+                listDiv.appendChild(row);
+            }
+        });
+
+        groupDiv.appendChild(listDiv);
+        return groupDiv;
+    }
+
+    // 1. Search Pane
     filterContainer.innerHTML = '';
-    displayLabels.forEach(label => {
-        const item = document.createElement('label');
-        item.className = 'filter-check-item';
-        const isChecked = previouslyChecked.includes(label);
-        item.innerHTML = `<input type="checkbox" data-label="${label}" ${isChecked ? 'checked' : ''}> ${label}`;
-        filterContainer.appendChild(item);
+    const searchGroupRoot = document.createElement('div');
+    searchGroupRoot.className = 'label-groups';
+    Object.entries(groups).forEach(([groupName, labels]) => {
+        searchGroupRoot.appendChild(createGroupUI(groupName, labels, true));
     });
+    filterContainer.appendChild(searchGroupRoot);
 
     // 2. Details Pane
     detailLabelContainer.innerHTML = '';
-    displayLabels.forEach(label => {
-        const row = document.createElement('div');
-        row.className = 'label-row';
-        row.innerHTML = `
-            <input type="checkbox" id="label-${label}" data-label="${label}">
-            <label for="label-${label}">${label}</label>
-        `;
-        detailLabelContainer.appendChild(row);
+    const detailGroupRoot = document.createElement('div');
+    detailGroupRoot.className = 'label-groups';
+    // Small optimization for side pane: might want single column if groups are many? 
+    // But user asked for box styling, so let's stick to consistent flex.
+    Object.entries(groups).forEach(([groupName, labels]) => {
+        detailGroupRoot.appendChild(createGroupUI(groupName, labels, false));
     });
+    detailLabelContainer.appendChild(detailGroupRoot);
 
     // Re-sync UI state if images are selected
     updateDetailsPane();
@@ -727,8 +775,12 @@ openSettingsBtn.addEventListener('click', () => {
 });
 
 closeModalBtn.addEventListener('click', async () => {
-    const inputs = masterLabelList.querySelectorAll('.master-label-input');
-    const newLabels = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
+    const items = masterLabelList.querySelectorAll('.master-label-item');
+    const newLabels = Array.from(items).map(item => {
+        const name = item.querySelector('.master-label-name').value.trim();
+        const group = item.querySelector('.master-label-group').value.trim() || '未分類';
+        return { name, group };
+    }).filter(l => l.name);
 
     await window.electronAPI.saveMasterLabels(newLabels);
     masterLabels = newLabels;
@@ -738,20 +790,21 @@ closeModalBtn.addEventListener('click', async () => {
 });
 
 addMasterLabelBtn.addEventListener('click', () => {
-    const row = createMasterLabelRow('新しいラベル', true);
+    const row = createMasterLabelRow({ name: '新しいラベル', group: '基本' }, true);
     masterLabelList.appendChild(row);
-    const input = row.querySelector('input');
+    const input = row.querySelector('.master-label-name');
     input.focus();
     input.select();
 });
 
-function createMasterLabelRow(label, editable = false) {
+function createMasterLabelRow(labelObj, editable = false) {
     const div = document.createElement('div');
     div.className = 'master-label-item';
     if (!editable) div.classList.add('readonly');
 
     div.innerHTML = `
-        <input type="text" class="master-label-input" value="${label}" ${editable ? '' : 'readonly'}>
+        <input type="text" class="master-label-name" value="${labelObj.name}" placeholder="ラベル名" ${editable ? '' : 'readonly'}>
+        <input type="text" class="master-label-group" value="${labelObj.group}" placeholder="グループ">
         <span class="delete-label-btn" title="削除">&times;</span>
     `;
 
@@ -764,8 +817,8 @@ function createMasterLabelRow(label, editable = false) {
 
 function renderMasterLabelList() {
     masterLabelList.innerHTML = '';
-    masterLabels.forEach(label => {
-        masterLabelList.appendChild(createMasterLabelRow(label, false));
+    masterLabels.forEach(labelObj => {
+        masterLabelList.appendChild(createMasterLabelRow(labelObj, false));
     });
 }
 

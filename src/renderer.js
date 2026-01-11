@@ -14,6 +14,7 @@ const detailResolution = document.getElementById('detail-resolution');
 const detailFilesize = document.getElementById('detail-filesize');
 const viewBtn = document.getElementById('view-btn');
 const deleteSelectionBtn = document.getElementById('delete-selection-btn');
+const moveSelectionBtn = document.getElementById('move-selection-btn');
 
 // State
 let allImagesData = []; // Store raw data from main process
@@ -585,6 +586,29 @@ deleteSelectionBtn.addEventListener('click', async () => {
             }
         } catch (e) {
             console.error(`Failed to delete ${path}:`, e);
+        }
+    }
+
+    finalizeDeletionUpdates();
+});
+
+moveSelectionBtn.addEventListener('click', async () => {
+    const imagesToMove = Array.from(selectedImages);
+    if (imagesToMove.length === 0) return;
+
+    const destDir = await window.electronAPI.selectMoveDestination();
+    if (!destDir) return;
+
+    for (const path of imagesToMove) {
+        try {
+            const result = await window.electronAPI.moveFile(path, destDir);
+            if (result.success) {
+                removeFileFromUI(path);
+            } else {
+                console.error(`Failed to move ${path}:`, result.error);
+            }
+        } catch (e) {
+            console.error(`Error moving ${path}:`, e);
         }
     }
 

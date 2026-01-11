@@ -52,11 +52,16 @@ function renderDynamicLabels() {
     const displayLabels = Array.from(new Set([...masterLabels, ...Array.from(adhocLabels).sort()]));
 
     // 1. Search Pane
+    // Save current filter state to restore after re-render
+    const currentFilters = getFilterCheckboxes();
+    const previouslyChecked = Object.keys(currentFilters).filter(label => currentFilters[label].checked);
+
     filterContainer.innerHTML = '';
     displayLabels.forEach(label => {
         const item = document.createElement('label');
         item.className = 'filter-check-item';
-        item.innerHTML = `<input type="checkbox" data-label="${label}"> ${label}`;
+        const isChecked = previouslyChecked.includes(label);
+        item.innerHTML = `<input type="checkbox" data-label="${label}" ${isChecked ? 'checked' : ''}> ${label}`;
         filterContainer.appendChild(item);
     });
 
@@ -238,7 +243,7 @@ saveLabelsBtn.addEventListener('click', async () => {
 
         updateDetailsPane();
         renderDynamicLabels(); // Refresh label list (adds new ad-hoc labels)
-        applyFilters(); // Re-apply filter in case labels changed
+        applyFilters(true); // Re-apply filter and keep selection unchanged if images still match
     } catch (e) {
         console.error(e);
         alert('エラーが発生しました');
@@ -251,19 +256,19 @@ filterBtn.addEventListener('click', () => {
     applyFilters();
 });
 
-function applyFilters() {
+function applyFilters(keepSelection = false) {
     const currentFilterCheckboxes = getFilterCheckboxes();
     const activeFilters = Object.entries(currentFilterCheckboxes)
         .filter(([label, box]) => box.checked)
         .map(([label, box]) => label);
 
     if (activeFilters.length === 0) {
-        renderGrid(allImagesData);
+        renderGrid(allImagesData, keepSelection);
     } else {
         const filtered = allImagesData.filter(img =>
             activeFilters.every(f => img.labels && img.labels.includes(f))
         );
-        renderGrid(filtered);
+        renderGrid(filtered, keepSelection);
     }
 }
 
@@ -322,12 +327,23 @@ function handleSelection(card, index, imagePath, event) {
     updateDetailsPane();
 }
 
-function renderGrid(data) {
-    // Reset selection state when re-rendering filtered list?
-    // Usually better to keep it if possible, but simpler to clear if indices change.
-    selectedImages.clear();
+function renderGrid(data, keepSelection = false) {
+    if (!keepSelection) {
+        selectedImages.clear();
+        lastSelectedCardIndex = -1;
+    } else {
+        // Only keep selected images that are still in the data (not filtered out)
+        const dataPaths = new Set(data.map(d => d.path));
+        selectedImages.forEach(path => {
+            if (!dataPaths.has(path)) {
+                selectedImages.delete(path);
+            }
+        });
+        // We don't reset lastSelectedCardIndex here to maintain anchor if possible,
+        // though it might point to a stale index in the new grid layout.
+    }
+
     allImageCards = [];
-    lastSelectedCardIndex = -1;
     imageGrid.innerHTML = '';
     updateDetailsPane();
 
@@ -346,6 +362,10 @@ function renderGrid(data) {
             const fileName = imagePath.split(/[\\/]/).pop();
             const card = document.createElement('div');
             card.className = 'image-card';
+            if (selectedImages.has(imagePath)) {
+                card.classList.add('selected');
+                // Update lastSelectedCardIndex if it's the only one selected or logically needs restoration
+            }
             card.setAttribute('data-name', fileName);
 
             const checkbox = document.createElement('div');

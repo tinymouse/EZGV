@@ -13,6 +13,7 @@ const detailFilename = document.getElementById('detail-filename');
 const detailResolution = document.getElementById('detail-resolution');
 const detailFilesize = document.getElementById('detail-filesize');
 const viewBtn = document.getElementById('view-btn');
+const deleteSelectionBtn = document.getElementById('delete-selection-btn');
 
 // State
 let allImagesData = []; // Store raw data from main process
@@ -352,51 +353,49 @@ let currentLightboxIndex = 0; // Current start index
 let isSplitView = false; // 1 or 2 images
 
 
-// Delete Logic
+// Internal helper to remove file from all UI components and state
+function removeFileFromUI(path) {
+    // State
+    allImagesData = allImagesData.filter(d => d.path !== path);
+    selectedImages.delete(path);
+    lightboxImages = lightboxImages.filter(p => p !== path);
+
+    // Grid Element
+    const cardRefIndex = allImageCards.findIndex(c => c.path === path);
+    if (cardRefIndex !== -1) {
+        allImageCards[cardRefIndex].element.remove();
+        allImageCards.splice(cardRefIndex, 1);
+    }
+}
+
+// Internal helper to update UI after one or more deletions
+function finalizeDeletionUpdates() {
+    // Update Lightbox
+    if (!lightbox.classList.contains('hidden')) {
+        if (lightboxImages.length === 0) {
+            lightbox.classList.add('hidden');
+        } else {
+            const maxIndex = lightboxImages.length - (isSplitView ? 2 : 1);
+            if (currentLightboxIndex > maxIndex) {
+                currentLightboxIndex = Math.max(0, maxIndex);
+            }
+            updateLightboxView();
+        }
+    }
+
+    // Update Side Pane
+    updateDetailsPane();
+}
+
+// Delete Logic for Lightbox (single file)
 async function deleteImage(path) {
     if (!confirm('本当に削除しますか？\nこの操作は元に戻せる場合があります（ゴミ箱へ移動）。')) return;
 
     try {
         const result = await window.electronAPI.deleteFile(path);
-
         if (result.success) {
-            // 1. Remove from data structures
-            const originalLength = lightboxImages.length;
-            lightboxImages = lightboxImages.filter(p => p !== path);
-            selectedImages.delete(path);
-            allImagesData = allImagesData.filter(d => d.path !== path);
-
-            // 2. Remove from Thumbnail Grid
-            // Find component
-            const cardRefIndex = allImageCards.findIndex(c => c.path === path);
-            if (cardRefIndex !== -1) {
-                allImageCards[cardRefIndex].element.remove();
-                allImageCards.splice(cardRefIndex, 1);
-            }
-
-            // 3. Update Lightbox State
-            if (lightboxImages.length === 0) {
-                lightbox.classList.add('hidden');
-            } else {
-                // Adjust index if we deleted the last item or shifted boundaries
-                if (currentLightboxIndex >= lightboxImages.length) {
-                    currentLightboxIndex = Math.max(0, lightboxImages.length - 1);
-                }
-                // Or if we deleted the item at currentIndex, we stay at currentIndex (which is now the next item),
-                // unless split view logic requires adjustment.
-
-                // Ensure proper split view constraints
-                const maxIndex = lightboxImages.length - (isSplitView ? 2 : 1);
-                if (currentLightboxIndex > maxIndex) {
-                    currentLightboxIndex = Math.max(0, maxIndex);
-                }
-
-                updateLightboxView();
-            }
-
-            // 4. Update Details Pane
-            updateDetailsPane();
-
+            removeFileFromUI(path);
+            finalizeDeletionUpdates();
         } else {
             console.error(result.error);
             alert('削除に失敗しました。');
@@ -533,6 +532,30 @@ viewBtn.addEventListener('click', () => {
         // If single selected, open in single view
         openLightbox(images, 0, count > 1);
     }
+});
+
+deleteSelectionBtn.addEventListener('click', async () => {
+    const imagesToDelete = Array.from(selectedImages);
+    if (imagesToDelete.length === 0) return;
+
+    const confirmMsg = imagesToDelete.length === 1
+        ? '本当にこのファイルを削除しますか？\n(ゴミ箱へ移動します)'
+        : `本当に選択中の ${imagesToDelete.length} 件のファイルを削除しますか？\n(ゴミ箱へ移動します)`;
+
+    if (!confirm(confirmMsg)) return;
+
+    for (const path of imagesToDelete) {
+        try {
+            const result = await window.electronAPI.deleteFile(path);
+            if (result.success) {
+                removeFileFromUI(path);
+            }
+        } catch (e) {
+            console.error(`Failed to delete ${path}:`, e);
+        }
+    }
+
+    finalizeDeletionUpdates();
 });
 
 selectFolderBtn.addEventListener('click', async () => {

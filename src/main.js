@@ -131,13 +131,19 @@ app.on('window-all-closed', function () {
 // IPC Handlers
 ipcMain.handle('select-folder', async () => {
     const settings = loadSettings();
-    const result = await dialog.showOpenDialog(mainWindow, {
-        properties: ['openDirectory'],
-        defaultPath: settings.lastFolder || app.getPath('pictures')
+    const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'フォルダを選択',
+        defaultPath: path.join(settings.lastFolder || app.getPath('pictures'), '表示したいフォルダを開き「このフォルダを選択」ボタンを押してください'),
+        buttonLabel: 'このフォルダを選択',
+        showOverwriteConfirmation: false, // 上書き確認を無効化
+        filters: [
+            { name: 'すべてのファイル', extensions: ['*'] }
+        ]
     });
 
-    if (!result.canceled && result.filePaths.length > 0) {
-        const selectedPath = result.filePaths[0];
+    if (!result.canceled && result.filePath) {
+        // 保存ダイアログで指定されたパスの「親フォルダ」を取得
+        const selectedPath = path.dirname(result.filePath);
         saveSettings({ lastFolder: selectedPath });
         return selectedPath;
     }
@@ -146,14 +152,18 @@ ipcMain.handle('select-folder', async () => {
 
 ipcMain.handle('select-move-destination', async () => {
     const settings = loadSettings();
-    const result = await dialog.showOpenDialog(mainWindow, {
-        title: '移動先フォルダを選択',
-        properties: ['openDirectory'],
-        defaultPath: settings.lastMoveDir || settings.lastFolder || app.getPath('pictures')
+    const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'フォルダを選択',
+        defaultPath: path.join(settings.lastMoveDir || settings.lastFolder || app.getPath('pictures'), '移動先のフォルダを開き「このフォルダへ移動」ボタンを押してください'),
+        buttonLabel: 'このフォルダへ移動',
+        showOverwriteConfirmation: false, // 上書き確認を無効化
+        filters: [
+            { name: 'すべてのファイル', extensions: ['*'] }
+        ]
     });
 
-    if (!result.canceled && result.filePaths.length > 0) {
-        const selectedPath = result.filePaths[0];
+    if (!result.canceled && result.filePath) {
+        const selectedPath = path.dirname(result.filePath);
         saveSettings({ lastMoveDir: selectedPath });
         return selectedPath;
     }

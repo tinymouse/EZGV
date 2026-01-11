@@ -27,12 +27,22 @@
         },
         "win": {
             "target": "nsis",
-            "icon": "res/icon/icon.png"
+            "icon": "res/icon/icon.ico"
         },
         "nsis": {
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
-            "shortcutName": "簡単画像管理"
+            "shortcutName": "簡単画像管理",
+            "installerIcon": "res/installer/win/Setup.ico"
+        },
+        "mac": {
+            "target": "dmg",
+            "icon": "res/icon/icon.png"
+        },
+        "linux": {
+            "target": "deb",
+            "icon": "res/icon/icon.png",
+            "category": "Utility"
         }
     }
 }

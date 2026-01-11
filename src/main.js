@@ -165,7 +165,7 @@ ipcMain.handle('get-file-details', async (event, filePath) => {
 // Label Management
 function getLabelFilePath(imagePath) {
     // Strategy: image.jpg -> image.jpg.txt to avoid collisions
-    return `${imagePath}.txt`; 
+    return `${imagePath}.txt`;
 }
 
 function getLabelsForFile(imagePath) {

@@ -44,5 +44,8 @@
             "icon": "res/icon/icon.png",
             "category": "Utility"
         }
+    },
+    "dependencies": {
+        "@google/generative-ai": "^0.24.1"
     }
 }

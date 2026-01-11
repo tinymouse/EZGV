@@ -30,12 +30,22 @@ const labelModal = document.getElementById('label-modal');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const masterLabelList = document.getElementById('master-label-list');
 const addMasterLabelBtn = document.getElementById('add-master-label-btn');
+const geminiApiKeyInput = document.getElementById('gemini-api-key');
+const geminiModelInput = document.getElementById('gemini-model');
+
+const autoLabelBtn = document.getElementById('auto-label-btn');
 
 const filterContainer = document.getElementById('filter-checkboxes');
 const detailLabelContainer = document.getElementById('label-container');
 
 async function loadMasterLabels() {
     masterLabels = await window.electronAPI.getMasterLabels();
+    const apiKey = await window.electronAPI.getGeminiApiKey();
+    if (geminiApiKeyInput) geminiApiKeyInput.value = apiKey;
+
+    const model = await window.electronAPI.getGeminiModel();
+    if (geminiModelInput) geminiModelInput.value = model || 'gemini-1.5-flash';
+
     renderDynamicLabels();
 }
 
@@ -784,9 +794,79 @@ closeModalBtn.addEventListener('click', async () => {
 
     await window.electronAPI.saveMasterLabels(newLabels);
     masterLabels = newLabels;
+
+    if (geminiApiKeyInput) {
+        await window.electronAPI.saveGeminiApiKey(geminiApiKeyInput.value.trim());
+    }
+    if (geminiModelInput) {
+        await window.electronAPI.saveGeminiModel(geminiModelInput.value.trim() || 'gemini-1.5-flash');
+    }
+
     renderDynamicLabels();
 
     labelModal.classList.add('hidden');
+});
+
+autoLabelBtn.addEventListener('click', async () => {
+    const imagesToProcess = Array.from(selectedImages);
+    if (imagesToProcess.length === 0) return;
+
+    autoLabelBtn.disabled = true;
+    const originalContent = autoLabelBtn.innerHTML;
+    autoLabelBtn.innerHTML = '解析中...';
+
+    try {
+        // For now, let's process them one by one if multiple, 
+        // or just the first one to avoid API quota hits if it's many.
+        // The user implied "selection", so let's loop but maybe limit if it's too many?
+        // Let's just do all of them for now.
+
+        for (const path of imagesToProcess) {
+            const result = await window.electronAPI.autoLabelImage(path, masterLabels);
+            if (result.success) {
+                // Apply suggested labels to the UI (check the boxes)
+                const currentLabels = getDetailCheckboxes();
+                result.labels.forEach(label => {
+                    // If label exists in UI, check it.
+                    // If it doesn't exist, we might need a way to add adhoc labels to the UI on the fly?
+                    // Actually renderDynamicLabels adds adhoc labels that are in allImagesData.
+                    // To make it show up in the checkboxes, we should update allImagesData's labels for this item.
+
+                    const dataItem = allImagesData.find(d => d.path === path);
+                    if (dataItem) {
+                        const s = new Set(dataItem.labels || []);
+                        s.add(label);
+                        dataItem.labels = Array.from(s);
+                    }
+
+                    const cardRef = allImageCards.find(c => c.path === path);
+                    if (cardRef) {
+                        const s = new Set(cardRef.labels || []);
+                        s.add(label);
+                        cardRef.labels = Array.from(s);
+                    }
+                });
+            } else {
+                alert(`AI解析エラー (${path.split(/[\\/]/).pop()}): ${result.error}`);
+                break; // Stop on first error (e.g. missing API key)
+            }
+        }
+
+        renderDynamicLabels(); // This will add any new ad-hoc labels to the UI
+        updateDetailsPane(); // Refresh checkbox states
+
+        autoLabelBtn.innerHTML = '完了!';
+        setTimeout(() => {
+            autoLabelBtn.disabled = false;
+            autoLabelBtn.innerHTML = originalContent;
+        }, 1500);
+
+    } catch (e) {
+        console.error(e);
+        alert('解析中にエラーが発生しました');
+        autoLabelBtn.disabled = false;
+        autoLabelBtn.innerHTML = originalContent;
+    }
 });
 
 addMasterLabelBtn.addEventListener('click', () => {

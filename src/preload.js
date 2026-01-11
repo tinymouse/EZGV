@@ -10,5 +10,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     moveFile: (srcPath, destDir) => ipcRenderer.invoke('move-file', { srcPath, destDir }),
     saveFileLabels: (filePath, labels) => ipcRenderer.invoke('save-file-labels', { filePath, labels }),
     getMasterLabels: () => ipcRenderer.invoke('get-master-labels'),
-    saveMasterLabels: (labels) => ipcRenderer.invoke('save-master-labels', labels)
+    saveMasterLabels: (labels) => ipcRenderer.invoke('save-master-labels', labels),
+    getGeminiApiKey: () => ipcRenderer.invoke('get-gemini-api-key'),
+    saveGeminiApiKey: (key) => ipcRenderer.invoke('save-gemini-api-key', key),
+    getGeminiModel: () => ipcRenderer.invoke('get-gemini-model'),
+    saveGeminiModel: (model) => ipcRenderer.invoke('save-gemini-model', model),
+    autoLabelImage: (filePath, masterLabels) => ipcRenderer.invoke('auto-label-image', { filePath, masterLabels })
 });

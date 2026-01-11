@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 ipcMain.handle('delete-file', async (event, filePath) => {
     try {
@@ -190,6 +191,73 @@ ipcMain.handle('save-master-labels', (event, labels) => {
     // labels: [{ name, group }, ...]
     saveSettings({ masterLabels: labels });
     return { success: true };
+});
+
+ipcMain.handle('get-gemini-api-key', () => {
+    const settings = loadSettings();
+    return settings.geminiApiKey || '';
+});
+
+ipcMain.handle('save-gemini-api-key', (event, key) => {
+    saveSettings({ geminiApiKey: key });
+    return { success: true };
+});
+
+ipcMain.handle('get-gemini-model', () => {
+    const settings = loadSettings();
+    return settings.geminiModel || 'gemini-1.5-flash';
+});
+
+ipcMain.handle('save-gemini-model', (event, model) => {
+    saveSettings({ geminiModel: model });
+    return { success: true };
+});
+
+ipcMain.handle('auto-label-image', async (event, { filePath, masterLabels }) => {
+    try {
+        const settings = loadSettings();
+        const apiKey = settings.geminiApiKey;
+        const modelName = settings.geminiModel || 'gemini-1.5-flash';
+
+        if (!apiKey) throw new Error('Gemini APIキーが設定されていません。管理画面の「AI設定」で設定してください。');
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: modelName });
+
+        const imageData = fs.readFileSync(filePath);
+        const imageBase64 = imageData.toString('base64');
+
+        const labelNames = masterLabels.map(l => l.name).join(', ');
+
+        const prompt = `
+            Analyze this image and suggest appropriate labels.
+            Select the most relevant ones from this predefined list if they apply: [${labelNames}].
+            You can also add new descriptive labels if none of the above are sufficient.
+            Return ONLY a comma-separated list of labels in Japanese (e.g. "人物, 風景, 海").
+            Do not include any other text or explanations.
+        `;
+
+        const result = await model.generateContent([
+            prompt,
+            {
+                inlineData: {
+                    data: imageBase64,
+                    mimeType: "image/jpeg" // common format, works for most
+                }
+            }
+        ]);
+
+        const response = await result.response;
+        const text = response.text();
+
+        // Clean up response: split by comma, trim
+        const suggestedLabels = text.split(/[,、\n]/).map(s => s.trim()).filter(s => s && s.length > 0);
+
+        return { success: true, labels: suggestedLabels };
+    } catch (error) {
+        console.error('Gemini error:', error);
+        return { success: false, error: error.message };
+    }
 });
 
 ipcMain.handle('get-file-details', async (event, filePath) => {

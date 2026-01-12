@@ -399,7 +399,8 @@ ipcMain.handle('get-images', async (event, folderPath) => {
                         const labels = getLabelsForFile(filePath);
                         images.push({
                             path: filePath,
-                            labels: labels
+                            labels: labels,
+                            mtime: stat.mtimeMs
                         });
                     }
                 }

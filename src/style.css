@@ -141,6 +141,34 @@ main {
     gap: 2rem;
 }
 
+.sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sort-options {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.sort-btn {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+
+.sort-btn.active {
+    opacity: 1;
+    background: rgba(56, 189, 248, 0.15) !important;
+    border-color: var(--accent-color) !important;
+    color: var(--accent-color);
+}
+
 .filter-group {
     display: flex;
     align-items: center;

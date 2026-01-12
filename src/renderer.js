@@ -24,6 +24,9 @@ let lastSelectedCardIndex = -1; // For Shift+Click range
 let masterLabels = []; // Loaded from settings
 let aiSuggestedLabels = new Set(); // Labels suggested by AI but not yet saved
 
+let currentSort = 'folder'; // 'folder', 'name', 'date'
+let currentOrder = 'asc'; // 'asc', 'desc'
+
 const saveLabelsBtn = document.getElementById('save-labels-btn');
 const filterBtn = document.getElementById('filter-btn');
 const openSettingsBtn = document.getElementById('open-settings-btn');
@@ -333,15 +336,65 @@ function applyFilters(keepSelection = false) {
         .filter(([label, box]) => box.checked)
         .map(([label, box]) => label);
 
-    if (activeFilters.length === 0) {
-        renderGrid(allImagesData, keepSelection);
-    } else {
-        const filtered = allImagesData.filter(img =>
+    let filtered = [...allImagesData];
+    if (activeFilters.length > 0) {
+        filtered = filtered.filter(img =>
             activeFilters.every(f => img.labels && img.labels.includes(f))
         );
-        renderGrid(filtered, keepSelection);
     }
+
+    // Sort the results
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if (currentSort === 'folder') {
+            valA = a.path.toLowerCase();
+            valB = b.path.toLowerCase();
+        } else if (currentSort === 'name') {
+            valA = a.path.split(/[\\/]/).pop().toLowerCase();
+            valB = b.path.split(/[\\/]/).pop().toLowerCase();
+        } else if (currentSort === 'date') {
+            valA = a.mtime || 0;
+            valB = b.mtime || 0;
+        }
+
+        if (valA < valB) return currentOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return currentOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    renderGrid(filtered, keepSelection);
 }
+
+// Sort Button Listeners
+document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const sortType = btn.getAttribute('data-sort');
+
+        if (currentSort === sortType) {
+            // Toggle order if same criteria
+            currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Change criteria, default order based on type
+            currentSort = sortType;
+            currentOrder = sortType === 'date' ? 'desc' : 'asc';
+        }
+
+        // Update UI
+        document.querySelectorAll('.sort-btn').forEach(b => {
+            b.classList.remove('active');
+            const type = b.getAttribute('data-sort');
+            const label = b.textContent.replace(/[↑↓]/, '').trim();
+            b.textContent = label;
+        });
+
+        btn.classList.add('active');
+        const arrow = currentOrder === 'asc' ? '↑' : '↓';
+        const baseLabel = btn.textContent.replace(/[↑↓]/, '').trim();
+        btn.textContent = `${baseLabel} ${arrow}`;
+
+        applyFilters(true);
+    });
+});
 
 
 function handleSelection(card, index, imagePath, event) {
@@ -480,7 +533,7 @@ async function loadImages(folderPath) {
         const imagesData = await window.electronAPI.getImages(folderPath); // Returns objects now
         allImagesData = imagesData; // Save to state
         renderDynamicLabels();
-        renderGrid(allImagesData);
+        applyFilters(); // Use applyFilters to ensure initial sorting
     } catch (error) {
         console.error('Failed to load images:', error);
         imageGrid.innerHTML = `

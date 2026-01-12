@@ -23,6 +23,7 @@ let selectedImages = new Set(); // Store paths
 let lastSelectedCardIndex = -1; // For Shift+Click range
 let masterLabels = []; // Loaded from settings
 let aiSuggestedLabels = new Set(); // Labels suggested by AI but not yet saved
+let pendingAiSuggestions = new Map(); // path -> Set of suggested labels
 
 let currentSort = 'folder'; // 'folder', 'name', 'date'
 let currentOrder = 'asc'; // 'asc', 'desc'
@@ -311,8 +312,17 @@ saveLabelsBtn.addEventListener('click', async () => {
             let newLabels = new Set(cardRef.labels || []);
 
             Object.entries(updates).forEach(([label, action]) => {
-                if (action === 'add') newLabels.add(label);
-                else if (action === 'remove') newLabels.delete(label);
+                if (action === 'add') {
+                    newLabels.add(label);
+                } else if (action === 'remove') {
+                    newLabels.delete(label);
+                } else if (action === 'ignore') {
+                    // Check if there was a pending AI suggestion for this specific image
+                    const suggestions = pendingAiSuggestions.get(path);
+                    if (suggestions && suggestions.has(label)) {
+                        newLabels.add(label);
+                    }
+                }
             });
 
             const finalLabels = Array.from(newLabels);
@@ -330,6 +340,7 @@ saveLabelsBtn.addEventListener('click', async () => {
         await Promise.all(promises);
 
         aiSuggestedLabels.clear(); // Clear AI suggestions once saved
+        pendingAiSuggestions.clear();
 
         // Visual feedback
         const originalText = saveLabelsBtn.textContent;
@@ -997,7 +1008,8 @@ autoLabelBtn.addEventListener('click', async () => {
         for (const path of imagesToProcess) {
             const result = await window.electronAPI.autoLabelImage(path, masterLabels);
             if (result.success) {
-                aiResultMap.set(path, new Set(result.labels));
+                const suggestionSet = new Set(result.labels);
+                pendingAiSuggestions.set(path, suggestionSet);
                 result.labels.forEach(label => aiSuggestedLabels.add(label));
             } else {
                 alert(`AI解析エラー (${path.split(/[\\/]/).pop()}): ${result.error}`);
@@ -1020,7 +1032,7 @@ autoLabelBtn.addEventListener('click', async () => {
             imagesToProcess.forEach(path => {
                 const card = allImageCards.find(c => c.path === path);
                 const hasReal = card && card.labels && card.labels.includes(labelName);
-                const hasAi = aiResultMap.has(path) && aiResultMap.get(path).has(labelName);
+                const hasAi = pendingAiSuggestions.has(path) && pendingAiSuggestions.get(path).has(labelName);
                 if (hasReal || hasAi) countWithLabel++;
             });
 

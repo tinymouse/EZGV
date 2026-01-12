@@ -22,6 +22,7 @@ let allImageCards = []; // Store references for Shift+Click
 let selectedImages = new Set(); // Store paths
 let lastSelectedCardIndex = -1; // For Shift+Click range
 let masterLabels = []; // Loaded from settings
+let aiSuggestedLabels = new Set(); // Labels suggested by AI but not yet saved
 
 const saveLabelsBtn = document.getElementById('save-labels-btn');
 const filterBtn = document.getElementById('filter-btn');
@@ -32,6 +33,7 @@ const masterLabelList = document.getElementById('master-label-list');
 const addMasterLabelBtn = document.getElementById('add-master-label-btn');
 const geminiApiKeyInput = document.getElementById('gemini-api-key');
 const geminiModelInput = document.getElementById('gemini-model');
+const aiAllowNewLabelsCheckbox = document.getElementById('ai-allow-new-labels');
 
 const autoLabelBtn = document.getElementById('auto-label-btn');
 
@@ -46,6 +48,9 @@ async function loadMasterLabels() {
     const model = await window.electronAPI.getGeminiModel();
     if (geminiModelInput) geminiModelInput.value = model || 'gemini-1.5-flash';
 
+    const allowNew = await window.electronAPI.getAiAllowNewLabels();
+    if (aiAllowNewLabelsCheckbox) aiAllowNewLabelsCheckbox.checked = allowNew !== false;
+
     renderDynamicLabels();
 }
 
@@ -57,6 +62,9 @@ function renderDynamicLabels() {
             img.labels.forEach(l => adhocLabels.add(l));
         }
     });
+
+    // Also include labels currently suggested by AI
+    aiSuggestedLabels.forEach(l => adhocLabels.add(l));
 
     // Grouping structure: { groupName: [labelName, ...] }
     const groups = {};
@@ -294,6 +302,8 @@ saveLabelsBtn.addEventListener('click', async () => {
 
         await Promise.all(promises);
 
+        aiSuggestedLabels.clear(); // Clear AI suggestions once saved
+
         // Visual feedback
         const originalText = saveLabelsBtn.textContent;
         saveLabelsBtn.textContent = '保存完了!';
@@ -302,8 +312,8 @@ saveLabelsBtn.addEventListener('click', async () => {
             saveLabelsBtn.textContent = '登録 (Save)';
         }, 1000);
 
-        updateDetailsPane();
         renderDynamicLabels(); // Refresh label list (adds new ad-hoc labels)
+        updateDetailsPane();
         applyFilters(true); // Re-apply filter and keep selection unchanged if images still match
     } catch (e) {
         console.error(e);
@@ -406,7 +416,6 @@ function renderGrid(data, keepSelection = false) {
 
     allImageCards = [];
     imageGrid.innerHTML = '';
-    updateDetailsPane();
 
     if (data.length === 0) {
         imageGrid.innerHTML = `
@@ -456,6 +465,9 @@ function renderGrid(data, keepSelection = false) {
             imageGrid.appendChild(card);
         });
     }
+
+    // Refresh the details pane to reflect the new grid state (and restore selection check states)
+    updateDetailsPane();
 }
 
 async function loadImages(folderPath) {
@@ -804,6 +816,9 @@ closeModalBtn.addEventListener('click', async () => {
     if (geminiModelInput) {
         await window.electronAPI.saveGeminiModel(geminiModelInput.value.trim() || 'gemini-1.5-flash');
     }
+    if (aiAllowNewLabelsCheckbox) {
+        await window.electronAPI.saveAiAllowNewLabels(aiAllowNewLabelsCheckbox.checked);
+    }
 
     renderDynamicLabels();
 
@@ -819,44 +834,49 @@ autoLabelBtn.addEventListener('click', async () => {
     autoLabelBtn.innerHTML = '解析中...';
 
     try {
-        // For now, let's process them one by one if multiple, 
-        // or just the first one to avoid API quota hits if it's many.
-        // The user implied "selection", so let's loop but maybe limit if it's too many?
-        // Let's just do all of them for now.
+        const aiResultMap = new Map(); // path -> Set of suggested labels
 
         for (const path of imagesToProcess) {
             const result = await window.electronAPI.autoLabelImage(path, masterLabels);
             if (result.success) {
-                // Apply suggested labels to the UI (check the boxes)
-                const currentLabels = getDetailCheckboxes();
-                result.labels.forEach(label => {
-                    // If label exists in UI, check it.
-                    // If it doesn't exist, we might need a way to add adhoc labels to the UI on the fly?
-                    // Actually renderDynamicLabels adds adhoc labels that are in allImagesData.
-                    // To make it show up in the checkboxes, we should update allImagesData's labels for this item.
-
-                    const dataItem = allImagesData.find(d => d.path === path);
-                    if (dataItem) {
-                        const s = new Set(dataItem.labels || []);
-                        s.add(label);
-                        dataItem.labels = Array.from(s);
-                    }
-
-                    const cardRef = allImageCards.find(c => c.path === path);
-                    if (cardRef) {
-                        const s = new Set(cardRef.labels || []);
-                        s.add(label);
-                        cardRef.labels = Array.from(s);
-                    }
-                });
+                aiResultMap.set(path, new Set(result.labels));
+                result.labels.forEach(label => aiSuggestedLabels.add(label));
             } else {
                 alert(`AI解析エラー (${path.split(/[\\/]/).pop()}): ${result.error}`);
-                break; // Stop on first error (e.g. missing API key)
+                break;
             }
         }
 
-        renderDynamicLabels(); // This will add any new ad-hoc labels to the UI
-        updateDetailsPane(); // Refresh checkbox states
+        renderDynamicLabels();
+        // Note: renderDynamicLabels() calls updateDetailsPane(), which resets checkboxes to 'real' labels.
+
+        // Apply AI suggestions visually to the checkboxes
+        const checkboxes = getDetailCheckboxes();
+        const totalCount = imagesToProcess.length;
+
+        Object.keys(checkboxes).forEach(labelName => {
+            const cb = checkboxes[labelName];
+
+            // Calculate aggregate state for this label across AI suggestions + Existing labels
+            let countWithLabel = 0;
+            imagesToProcess.forEach(path => {
+                const card = allImageCards.find(c => c.path === path);
+                const hasReal = card && card.labels && card.labels.includes(labelName);
+                const hasAi = aiResultMap.has(path) && aiResultMap.get(path).has(labelName);
+                if (hasReal || hasAi) countWithLabel++;
+            });
+
+            if (countWithLabel === totalCount) {
+                cb.checked = true;
+                cb.indeterminate = false;
+            } else if (countWithLabel > 0) {
+                cb.checked = false;
+                cb.indeterminate = true;
+            } else {
+                cb.checked = false;
+                cb.indeterminate = false;
+            }
+        });
 
         autoLabelBtn.innerHTML = '完了!';
         setTimeout(() => {

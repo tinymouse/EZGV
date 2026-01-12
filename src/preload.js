@@ -15,5 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveGeminiApiKey: (key) => ipcRenderer.invoke('save-gemini-api-key', key),
     getGeminiModel: () => ipcRenderer.invoke('get-gemini-model'),
     saveGeminiModel: (model) => ipcRenderer.invoke('save-gemini-model', model),
+    getAiAllowNewLabels: () => ipcRenderer.invoke('get-ai-allow-new-labels'),
+    saveAiAllowNewLabels: (value) => ipcRenderer.invoke('save-ai-allow-new-labels', value),
     autoLabelImage: (filePath, masterLabels) => ipcRenderer.invoke('auto-label-image', { filePath, masterLabels })
 });

@@ -223,11 +223,22 @@ ipcMain.handle('save-gemini-model', (event, model) => {
     return { success: true };
 });
 
+ipcMain.handle('get-ai-allow-new-labels', () => {
+    const settings = loadSettings();
+    return settings.aiAllowNewLabels !== false; // Default to true
+});
+
+ipcMain.handle('save-ai-allow-new-labels', (event, value) => {
+    saveSettings({ aiAllowNewLabels: value });
+    return { success: true };
+});
+
 ipcMain.handle('auto-label-image', async (event, { filePath, masterLabels }) => {
     try {
         const settings = loadSettings();
         const apiKey = settings.geminiApiKey;
         const modelName = settings.geminiModel || 'gemini-2.5-flash';
+        const allowNew = settings.aiAllowNewLabels !== false;
 
         if (!apiKey) throw new Error('Gemini APIキーが設定されていません。管理画面の「AI設定」で設定してください。');
 
@@ -239,13 +250,23 @@ ipcMain.handle('auto-label-image', async (event, { filePath, masterLabels }) => 
 
         const labelNames = masterLabels.map(l => l.name).join(', ');
 
-        const prompt = `
-            Analyze this image and suggest appropriate labels.
-            Select the most relevant ones from this predefined list if they apply: [${labelNames}].
-            You can also add new descriptive labels if none of the above are sufficient.
-            Return ONLY a comma-separated list of labels in Japanese (e.g. "人物, 風景, 海").
-            Do not include any other text or explanations.
-        `;
+        let prompt;
+        if (allowNew) {
+            prompt = `
+                Analyze this image and suggest appropriate labels in Japanese.
+                Select relevant ones from this predefined list if they apply: [${labelNames}].
+                You can also add new descriptive labels if none of the above are sufficient.
+                Return ONLY a comma-separated list of labels (e.g. "人物, 風景, 海").
+                Do not include any other text.
+            `;
+        } else {
+            prompt = `
+                Analyze this image and select appropriate labels in Japanese ONLY from the following list: [${labelNames}].
+                DO NOT create any new labels. If no labels apply, return an empty string.
+                Return ONLY a comma-separated list of labels.
+                Do not include any other text.
+            `;
+        }
 
         const result = await model.generateContent([
             prompt,

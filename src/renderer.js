@@ -44,6 +44,19 @@ const autoLabelBtn = document.getElementById('auto-label-btn');
 const filterContainer = document.getElementById('filter-checkboxes');
 const detailLabelContainer = document.getElementById('label-container');
 
+const renamePrefixInput = document.getElementById('rename-prefix');
+const renameSeparatorInput = document.getElementById('rename-separator');
+const renameDateCheckbox = document.getElementById('rename-date');
+const renameTimeCheckbox = document.getElementById('rename-time');
+const renameSecondsCheckbox = document.getElementById('rename-seconds');
+const renameLabelsCheckbox = document.getElementById('rename-labels');
+const renameLabelsAfterCheckbox = document.getElementById('rename-labels-after');
+const renameSequenceCheckbox = document.getElementById('rename-sequence');
+const renameAutoSequenceCheckbox = document.getElementById('rename-auto-sequence');
+const renameSequenceDigits = document.getElementById('rename-sequence-digits');
+const renamePreview = document.getElementById('rename-preview');
+const renameBtn = document.getElementById('rename-btn');
+
 async function loadMasterLabels() {
     masterLabels = await window.electronAPI.getMasterLabels();
     const apiKey = await window.electronAPI.getGeminiApiKey();
@@ -63,7 +76,34 @@ async function loadMasterLabels() {
         updateSortUI();
     }
 
+    // Load Rename Settings
+    const renameSettings = await window.electronAPI.getRenameSettings();
+    if (renameSettings) {
+        if (renamePrefixInput) renamePrefixInput.value = renameSettings.prefix || '';
+        if (renameSeparatorInput) renameSeparatorInput.value = renameSettings.separator || '_';
+        if (renameDateCheckbox) renameDateCheckbox.checked = !!renameSettings.date;
+        if (renameTimeCheckbox) renameTimeCheckbox.checked = !!renameSettings.time;
+        if (renameSecondsCheckbox) renameSecondsCheckbox.checked = !!renameSettings.seconds;
+        if (renameLabelsCheckbox) renameLabelsCheckbox.checked = !!renameSettings.labels;
+        if (renameLabelsAfterCheckbox) renameLabelsAfterCheckbox.checked = !!renameSettings.labelsAfter;
+        if (renameSequenceCheckbox) renameSequenceCheckbox.checked = !!renameSettings.sequence;
+        if (renameAutoSequenceCheckbox) renameAutoSequenceCheckbox.checked = !!renameSettings.autoSequence;
+        if (renameSequenceDigits) renameSequenceDigits.value = renameSettings.digits || 2;
+    }
+
+    updateRenameUIState();
     renderDynamicLabels();
+}
+
+function updateRenameUIState() {
+    if (renameSequenceCheckbox && renameAutoSequenceCheckbox) {
+        const isSequenceManual = renameSequenceCheckbox.checked;
+        renameAutoSequenceCheckbox.disabled = isSequenceManual;
+        const wrapper = document.getElementById('rename-auto-sequence-wrapper');
+        if (wrapper) {
+            wrapper.style.opacity = isSequenceManual ? '0.5' : '1';
+        }
+    }
 }
 
 function updateSortUI() {
@@ -283,7 +323,172 @@ async function updateDetailsPane() {
             }
         });
     }
+
+    updateRenamePreview();
 }
+
+function generateNewName(index, total, imagePath, labels) {
+    const prefix = renamePrefixInput.value.trim();
+    const separator = renameSeparatorInput.value;
+    const parts = [];
+
+    if (prefix) parts.push(prefix);
+
+    const now = new Date();
+
+    if (renameLabelsCheckbox.checked && labels && labels.length > 0 && !renameLabelsAfterCheckbox.checked) {
+        parts.push(labels.join(separator));
+    }
+
+    if (renameDateCheckbox.checked) {
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        parts.push(`${y}${m}${d}`);
+    }
+
+    if (renameTimeCheckbox.checked) {
+        const h = String(now.getHours()).padStart(2, '0');
+        const mi = String(now.getMinutes()).padStart(2, '0');
+        let timeStr = `${h}${mi}`;
+        if (renameSecondsCheckbox.checked) {
+            timeStr += String(now.getSeconds()).padStart(2, '0');
+        }
+        parts.push(timeStr);
+    }
+
+    if (renameLabelsCheckbox.checked && labels && labels.length > 0 && renameLabelsAfterCheckbox.checked) {
+        parts.push(labels.join(separator));
+    }
+
+    if (renameSequenceCheckbox.checked) {
+        const digits = parseInt(renameSequenceDigits.value);
+        parts.push(String(index + 1).padStart(digits, '0'));
+    }
+
+    return parts.join(separator);
+}
+
+function updateRenamePreview() {
+    if (!renamePreview) return;
+    if (selectedImages.size === 0) {
+        renamePreview.textContent = '-';
+        return;
+    }
+    // Sort selected images by the current grid order (allImagesData)
+    const imagesArray = allImagesData
+        .filter(img => selectedImages.has(img.path));
+
+    if (imagesArray.length === 0) {
+        renamePreview.textContent = '-';
+        return;
+    }
+
+    const firstItem = imagesArray[0];
+    const labels = firstItem.labels || [];
+
+    const newNameBase = generateNewName(0, imagesArray.length, firstItem.path, labels);
+    if (!newNameBase) {
+        renamePreview.textContent = '-';
+        return;
+    }
+
+    const ext = firstItem.path.split('.').pop();
+    renamePreview.textContent = `${newNameBase}.${ext}`;
+}
+
+// Rename Listeners
+[
+    renamePrefixInput, renameSeparatorInput, renameDateCheckbox, renameTimeCheckbox,
+    renameSecondsCheckbox, renameLabelsCheckbox, renameLabelsAfterCheckbox,
+    renameSequenceCheckbox, renameAutoSequenceCheckbox, renameSequenceDigits
+].forEach(el => {
+    if (el) {
+        const handler = () => {
+            if (el === renameSequenceCheckbox) {
+                updateRenameUIState();
+            }
+            updateRenamePreview();
+            // Save settings whenever something changes
+            const settings = {
+                prefix: renamePrefixInput.value,
+                separator: renameSeparatorInput.value,
+                date: renameDateCheckbox.checked,
+                time: renameTimeCheckbox.checked,
+                seconds: renameSecondsCheckbox.checked,
+                labels: renameLabelsCheckbox.checked,
+                labelsAfter: renameLabelsAfterCheckbox.checked,
+                sequence: renameSequenceCheckbox.checked,
+                autoSequence: renameAutoSequenceCheckbox.checked,
+                digits: parseInt(renameSequenceDigits.value)
+            };
+            window.electronAPI.saveRenameSettings(settings);
+        };
+        el.addEventListener('input', handler);
+        el.addEventListener('change', handler);
+    }
+});
+
+renameBtn.addEventListener('click', async () => {
+    // Sort selected images by the current grid order (allImagesData)
+    const imagesArray = allImagesData
+        .filter(img => selectedImages.has(img.path));
+
+    if (imagesArray.length === 0) return;
+
+    if (!confirm(`${imagesArray.length}件のファイルをリネームしますか？`)) return;
+
+    renameBtn.disabled = true;
+    const originalText = renameBtn.innerHTML;
+    renameBtn.innerHTML = '実行中...';
+
+    try {
+        const results = [];
+        for (let i = 0; i < imagesArray.length; i++) {
+            const oldItem = imagesArray[i];
+            const oldPath = oldItem.path;
+            const labels = oldItem.labels || [];
+            const newBaseName = generateNewName(i, imagesArray.length, oldPath, labels);
+
+            if (!newBaseName) continue;
+
+            const res = await window.electronAPI.renameFile(
+                oldPath,
+                newBaseName,
+                renameAutoSequenceCheckbox.checked && !renameSequenceCheckbox.checked,
+                renameSeparatorInput.value
+            );
+            if (res.success) {
+                // Update local state
+                const idx = allImagesData.findIndex(d => d.path === oldPath);
+                if (idx !== -1) {
+                    allImagesData[idx].path = res.newPath;
+                }
+
+                // Update selection set
+                selectedImages.delete(oldPath);
+                selectedImages.add(res.newPath);
+            } else {
+                console.error(`Rename failed for ${oldPath}:`, res.error);
+            }
+            results.push(res);
+        }
+
+        const successCount = results.filter(r => r.success).length;
+        if (successCount > 0) {
+            alert(`${successCount}件のリネームが完了しました。`);
+            applyFilters(true);
+        } else {
+            alert('リネームに失敗しました。');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('エラーが発生しました');
+    } finally {
+        renameBtn.disabled = false;
+        renameBtn.innerHTML = originalText;
+    }
+});
 
 // ... helper ...
 

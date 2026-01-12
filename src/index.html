@@ -164,6 +164,64 @@
                             登録 (Save)
                         </button>
                     </div>
+
+                    <div class="detail-item rename-section">
+                        <label>一括リネーム</label>
+                        <div class="rename-controls">
+                            <div class="rename-grid">
+                                <div class="rename-row">
+                                    <span>先頭:</span>
+                                    <input type="text" id="rename-prefix" placeholder="なし">
+                                </div>
+                                <div class="rename-row">
+                                    <span>区切:</span>
+                                    <input type="text" id="rename-separator" value="_" style="width: 40px;">
+                                </div>
+                            </div>
+                            <div class="rename-options">
+                                <div style="width: 100%; display: flex; gap: 1rem;">
+                                    <label><input type="checkbox" id="rename-labels"> ラベル</label>
+                                    <label class="rename-label-gray"><input type="checkbox" id="rename-labels-after">
+                                        日時の後に配置</label>
+                                </div>
+                                <label><input type="checkbox" id="rename-date"> 日付</label>
+                                <label><input type="checkbox" id="rename-time"> 時刻</label>
+                                <label class="rename-label-gray"><input type="checkbox" id="rename-seconds">
+                                    秒を加える</label>
+                                <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <label><input type="checkbox" id="rename-sequence"> 連番</label>
+                                        <span class="rename-label-gray">連番の桁数:</span>
+                                        <select id="rename-sequence-digits">
+                                            <option value="1">1</option>
+                                            <option value="2" selected>2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                            <option value="6">6</option>
+                                            <option value="7">7</option>
+                                            <option value="8">8</option>
+                                            <option value="9">9</option>
+                                        </select>
+                                    </div>
+                                    <label id="rename-auto-sequence-wrapper">
+                                        <input type="checkbox" id="rename-auto-sequence"> 同名になるとき連番をつける
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="rename-preview-area">
+                                <div id="rename-preview" class="rename-preview-text">-</div>
+                            </div>
+                        </div>
+                        <button id="rename-btn" class="primary-btn rename-execute-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            リネーム実行
+                        </button>
+                    </div>
                 </div>
                 <div id="no-selection" class="no-selection">
                     <p>Select an image to view details</p>

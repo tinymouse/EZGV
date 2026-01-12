@@ -5,7 +5,15 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 ipcMain.handle('delete-file', async (event, filePath) => {
     try {
+        // Move the image to trash
         await shell.trashItem(filePath);
+
+        // Also move the label file if it exists
+        const labelPath = `${filePath}.txt`;
+        if (fs.existsSync(labelPath)) {
+            await shell.trashItem(labelPath);
+        }
+
         return { success: true };
     } catch (error) {
         console.error('Trash item failed:', error);
@@ -246,6 +254,27 @@ ipcMain.handle('save-sort-settings', (event, { type, order }) => {
     return { success: true };
 });
 
+ipcMain.handle('get-rename-settings', () => {
+    const settings = loadSettings();
+    return settings.renameSettings || {
+        prefix: '',
+        separator: '_',
+        date: false,
+        time: false,
+        seconds: false,
+        labels: false,
+        labelsAfter: false,
+        sequence: false,
+        autoSequence: false,
+        digits: 2
+    };
+});
+
+ipcMain.handle('save-rename-settings', (event, renameSettings) => {
+    saveSettings({ renameSettings });
+    return { success: true };
+});
+
 ipcMain.handle('auto-label-image', async (event, { filePath, masterLabels }) => {
     try {
         const settings = loadSettings();
@@ -332,21 +361,25 @@ function getMetadataForFile(imagePath) {
             const content = fs.readFileSync(txtPath, 'utf-8');
             const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l);
             if (lines.length > 0) {
-                // Line 1: filename (ignored during parsing but required for format)
-                let order = 0;
+                let order = 1000000;
+                let prevName = null;
                 let labels = [];
-                let labelStart = 1;
 
-                if (lines.length > 1 && lines[1].startsWith('ORDER:')) {
-                    order = parseInt(lines[1].replace('ORDER:', '').trim()) || 0;
-                    labelStart = 2;
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (line.startsWith('ORDER:')) {
+                        order = parseInt(line.replace('ORDER:', '').trim()) || 1000000;
+                    } else if (line.startsWith('PREV_NAME:')) {
+                        prevName = line.replace('PREV_NAME:', '').trim();
+                    } else {
+                        labels.push(line);
+                    }
                 }
-                labels = lines.slice(labelStart);
-                return { order, labels };
+                return { order, labels, prevName };
             }
         }
     } catch (e) { }
-    return { order: 1000000, labels: [] }; // Default high order
+    return { order: 1000000, labels: [], prevName: null };
 }
 
 ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
@@ -356,7 +389,8 @@ ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
         const fileName = path.basename(filePath);
 
         const lines = [fileName];
-        if (metadata.order !== undefined) lines.push(`ORDER: ${metadata.order}`);
+        if (metadata.order !== 1000000) lines.push(`ORDER: ${metadata.order}`);
+        if (metadata.prevName) lines.push(`PREV_NAME: ${metadata.prevName}`);
         lines.push(...labels);
 
         fs.writeFileSync(txtPath, lines.join('\n'), 'utf-8');
@@ -372,10 +406,59 @@ ipcMain.handle('save-file-order', async (event, { filePath, order }) => {
         const txtPath = getLabelFilePath(filePath);
         const fileName = path.basename(filePath);
 
-        const lines = [fileName, `ORDER: ${order}`, ...metadata.labels];
+        const lines = [fileName, `ORDER: ${order}`];
+        if (metadata.prevName) lines.push(`PREV_NAME: ${metadata.prevName}`);
+        lines.push(...metadata.labels);
         fs.writeFileSync(txtPath, lines.join('\n'), 'utf-8');
         return { success: true };
     } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('rename-file', async (event, { filePath, newName, autoSequence, separator }) => {
+    try {
+        const dir = path.dirname(filePath);
+        const ext = path.extname(filePath);
+        const oldBaseName = path.basename(filePath);
+        let finalNewName = newName;
+        let newPath = path.join(dir, finalNewName + ext);
+
+        if (fs.existsSync(newPath)) {
+            if (autoSequence) {
+                let counter = 1;
+                while (fs.existsSync(newPath)) {
+                    finalNewName = `${newName}${separator}${String(counter).padStart(2, '0')}`;
+                    newPath = path.join(dir, finalNewName + ext);
+                    counter++;
+                    if (counter > 999) break; // Safety break
+                }
+            } else {
+                return { success: false, error: 'ファイル名が既に存在します。' };
+            }
+        }
+
+        const metadata = getMetadataForFile(filePath);
+        const oldLabelPath = getLabelFilePath(filePath);
+        const newLabelPath = getLabelFilePath(newPath);
+
+        // Rename image
+        fs.renameSync(filePath, newPath);
+
+        // Rename and update label file
+        const lines = [finalNewName + ext];
+        if (metadata.order !== 1000000) lines.push(`ORDER: ${metadata.order}`);
+        lines.push(`PREV_NAME: ${oldBaseName}`);
+        lines.push(...metadata.labels);
+
+        fs.writeFileSync(newLabelPath, lines.join('\n'), 'utf-8');
+        if (fs.existsSync(oldLabelPath) && oldLabelPath !== newLabelPath) {
+            fs.unlinkSync(oldLabelPath);
+        }
+
+        return { success: true, newPath };
+    } catch (e) {
+        console.error('Rename error:', e);
         return { success: false, error: e.message };
     }
 });

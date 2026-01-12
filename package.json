@@ -8,12 +8,19 @@
         "electron": "^39.2.7",
         "electron-builder": "^26.4.0"
     },
+    "dependencies": {
+        "@google/generative-ai": "^0.24.1"
+    },
     "scripts": {
         "start": "electron .",
         "build": "electron-builder",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
-    "author": "Tiny Mouse",
+    "homepage": "https://github.com/tinymouse/ezgv",
+    "author": {
+        "name": "Tiny Mouse",
+        "email": "khc04052@nifty.com"
+    },
     "license": "ISC",
     "build": {
         "appId": "jp.tinymouse.ezgv",
@@ -30,6 +37,7 @@
             "icon": "res/icon/icon.ico"
         },
         "nsis": {
+            "artifactName": "EZGV Setup ${version}.${ext}",
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
             "shortcutName": "簡単画像管理",
@@ -44,8 +52,5 @@
             "icon": "res/icon/icon.png",
             "category": "Utility"
         }
-    },
-    "dependencies": {
-        "@google/generative-ai": "^0.24.1"
     }
 }

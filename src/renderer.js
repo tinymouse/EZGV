@@ -57,6 +57,10 @@ const renameSequenceDigits = document.getElementById('rename-sequence-digits');
 const renamePreview = document.getElementById('rename-preview');
 const renameBtn = document.getElementById('rename-btn');
 
+const splitRowsInput = document.getElementById('split-rows');
+const splitColsInput = document.getElementById('split-cols');
+const splitBtn = document.getElementById('split-btn');
+
 async function loadMasterLabels() {
     masterLabels = await window.electronAPI.getMasterLabels();
     const apiKey = await window.electronAPI.getGeminiApiKey();
@@ -487,6 +491,58 @@ renameBtn.addEventListener('click', async () => {
     } finally {
         renameBtn.disabled = false;
         renameBtn.innerHTML = originalText;
+    }
+});
+
+splitBtn.addEventListener('click', async () => {
+    const imagesArray = Array.from(selectedImages);
+    if (imagesArray.length === 0) return;
+
+    const rows = parseInt(splitRowsInput.value);
+    const cols = parseInt(splitColsInput.value);
+
+    if (isNaN(rows) || rows < 1 || isNaN(cols) || cols < 1) {
+        alert('正当な分割数を入力してください。');
+        return;
+    }
+
+    if (rows === 1 && cols === 1) {
+        alert('分割数が1x1です。');
+        return;
+    }
+
+    if (!confirm(`${imagesArray.length}件のファイルを ${rows}x${cols} に分割しますか？\n(分割後のファイルは同じフォルダに保存されます)`)) return;
+
+    splitBtn.disabled = true;
+    const originalText = splitBtn.innerHTML;
+    splitBtn.innerHTML = '分割中...';
+
+    try {
+        let totalCreated = 0;
+        for (const filePath of imagesArray) {
+            const res = await window.electronAPI.splitImage(filePath, rows, cols);
+            if (res.success) {
+                totalCreated += res.count;
+            } else {
+                console.error(`Split failed for ${filePath}:`, res.error);
+                alert(`${path.basename(filePath)} の分割に失敗しました: ${res.error}`);
+            }
+        }
+
+        if (totalCreated > 0) {
+            alert(`${totalCreated}枚の画像を作成しました。`);
+            // Refresh folder to show new images
+            const pathTxt = folderPathDisplay.textContent;
+            if (pathTxt && pathTxt !== '未選択') {
+                loadImages(pathTxt);
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        alert('エラーが発生しました');
+    } finally {
+        splitBtn.disabled = false;
+        splitBtn.innerHTML = originalText;
     }
 });
 

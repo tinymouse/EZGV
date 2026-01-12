@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -459,6 +459,69 @@ ipcMain.handle('rename-file', async (event, { filePath, newName, autoSequence, s
         return { success: true, newPath };
     } catch (e) {
         console.error('Rename error:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('split-image', async (event, { filePath, rows, cols }) => {
+    try {
+        const dir = path.dirname(filePath);
+        const originalBase = path.basename(filePath);
+        const ext = path.extname(filePath);
+        const nameWithoutExt = path.basename(filePath, ext);
+
+        const img = nativeImage.createFromPath(filePath);
+        const { width, height } = img.getSize();
+
+        if (width === 0 || height === 0) {
+            throw new Error('画像の読み込みに失敗しました。');
+        }
+
+        const tileWidth = Math.floor(width / cols);
+        const tileHeight = Math.floor(height / rows);
+
+        const results = [];
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const rect = {
+                    x: c * tileWidth,
+                    y: r * tileHeight,
+                    width: tileWidth,
+                    height: tileHeight
+                };
+
+                // Adjust the last tiles to cover the remaining pixels
+                if (c === cols - 1) rect.width = width - rect.x;
+                if (r === rows - 1) rect.height = height - rect.y;
+
+                const tileImg = img.crop(rect);
+                const seq = r * cols + c + 1;
+                const seqStr = String(seq).padStart(2, '0');
+                const newBaseName = `${nameWithoutExt}_${seqStr}`;
+                const newFileName = newBaseName + ext;
+                const newPath = path.join(dir, newFileName);
+
+                let buffer;
+                if (ext.toLowerCase() === '.png') {
+                    buffer = tileImg.toPNG();
+                } else {
+                    buffer = tileImg.toJPEG(95);
+                }
+
+                fs.writeFileSync(newPath, buffer);
+
+                const newLabelPath = getLabelFilePath(newPath);
+                const lines = [newFileName, `PREV_NAME: ${originalBase}`];
+                fs.writeFileSync(newLabelPath, lines.join('\n'), 'utf-8');
+
+                results.push(newPath);
+            }
+        }
+
+        return { success: true, count: results.length };
+    } catch (e) {
+        console.error('Split error:', e);
         return { success: false, error: e.message };
     }
 });

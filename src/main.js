@@ -233,6 +233,19 @@ ipcMain.handle('save-ai-allow-new-labels', (event, value) => {
     return { success: true };
 });
 
+ipcMain.handle('get-sort-settings', () => {
+    const settings = loadSettings();
+    return {
+        type: settings.sortType || 'folder',
+        order: settings.sortOrder || 'asc'
+    };
+});
+
+ipcMain.handle('save-sort-settings', (event, { type, order }) => {
+    saveSettings({ sortType: type, sortOrder: order });
+    return { success: true };
+});
+
 ipcMain.handle('auto-label-image', async (event, { filePath, masterLabels }) => {
     try {
         const settings = loadSettings();
@@ -311,36 +324,58 @@ function getLabelFilePath(imagePath) {
     return `${imagePath}.txt`;
 }
 
-function getLabelsForFile(imagePath) {
+// Metadata Management
+function getMetadataForFile(imagePath) {
     try {
         const txtPath = getLabelFilePath(imagePath);
         if (fs.existsSync(txtPath)) {
             const content = fs.readFileSync(txtPath, 'utf-8');
             const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l);
-            // First line might be filename (as per requirement), subsequent are labels
-            // Requirement: "Record filename and attributes"
-            // Let's assume:
-            // Line 1: filename
-            // Line 2+: labels
-            if (lines.length > 1) {
-                return lines.slice(1);
+            if (lines.length > 0) {
+                // Line 1: filename (ignored during parsing but required for format)
+                let order = 0;
+                let labels = [];
+                let labelStart = 1;
+
+                if (lines.length > 1 && lines[1].startsWith('ORDER:')) {
+                    order = parseInt(lines[1].replace('ORDER:', '').trim()) || 0;
+                    labelStart = 2;
+                }
+                labels = lines.slice(labelStart);
+                return { order, labels };
             }
         }
-    } catch (e) {
-        // user might delete file manually etc.
-    }
-    return [];
+    } catch (e) { }
+    return { order: 1000000, labels: [] }; // Default high order
 }
 
 ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
     try {
+        const metadata = getMetadataForFile(filePath);
         const txtPath = getLabelFilePath(filePath);
         const fileName = path.basename(filePath);
-        const content = [fileName, ...labels].join('\n');
-        fs.writeFileSync(txtPath, content, 'utf-8');
+
+        const lines = [fileName];
+        if (metadata.order !== undefined) lines.push(`ORDER: ${metadata.order}`);
+        lines.push(...labels);
+
+        fs.writeFileSync(txtPath, lines.join('\n'), 'utf-8');
         return { success: true };
     } catch (e) {
-        console.error('Failed to save labels:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('save-file-order', async (event, { filePath, order }) => {
+    try {
+        const metadata = getMetadataForFile(filePath);
+        const txtPath = getLabelFilePath(filePath);
+        const fileName = path.basename(filePath);
+
+        const lines = [fileName, `ORDER: ${order}`, ...metadata.labels];
+        fs.writeFileSync(txtPath, lines.join('\n'), 'utf-8');
+        return { success: true };
+    } catch (e) {
         return { success: false, error: e.message };
     }
 });
@@ -396,10 +431,11 @@ ipcMain.handle('get-images', async (event, folderPath) => {
                 } else {
                     const ext = path.extname(file).toLowerCase();
                     if (extensions.includes(ext)) {
-                        const labels = getLabelsForFile(filePath);
+                        const metadata = getMetadataForFile(filePath);
                         images.push({
                             path: filePath,
-                            labels: labels,
+                            labels: metadata.labels,
+                            order: metadata.order,
                             mtime: stat.mtimeMs
                         });
                     }

@@ -54,7 +54,31 @@ async function loadMasterLabels() {
     const allowNew = await window.electronAPI.getAiAllowNewLabels();
     if (aiAllowNewLabelsCheckbox) aiAllowNewLabelsCheckbox.checked = allowNew !== false;
 
+    // Load Sort Settings
+    const sortSettings = await window.electronAPI.getSortSettings();
+    if (sortSettings) {
+        currentSort = sortSettings.type || 'folder';
+        currentOrder = sortSettings.order || 'asc';
+        updateSortUI();
+    }
+
     renderDynamicLabels();
+}
+
+function updateSortUI() {
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        const type = btn.getAttribute('data-sort');
+        btn.classList.remove('active');
+
+        let label = btn.textContent.replace(/[↑↓]/, '').trim();
+        btn.textContent = label;
+
+        if (type === currentSort) {
+            btn.classList.add('active');
+            const arrow = currentOrder === 'asc' ? '↑' : '↓';
+            btn.textContent = `${label} ${arrow}`;
+        }
+    });
 }
 
 function renderDynamicLabels() {
@@ -346,7 +370,10 @@ function applyFilters(keepSelection = false) {
     // Sort the results
     filtered.sort((a, b) => {
         let valA, valB;
-        if (currentSort === 'folder') {
+        if (currentSort === 'manual') {
+            valA = a.order !== undefined ? a.order : 1000000;
+            valB = b.order !== undefined ? b.order : 1000000;
+        } else if (currentSort === 'folder') {
             valA = a.path.toLowerCase();
             valB = b.path.toLowerCase();
         } else if (currentSort === 'name') {
@@ -379,18 +406,11 @@ document.querySelectorAll('.sort-btn').forEach(btn => {
             currentOrder = sortType === 'date' ? 'desc' : 'asc';
         }
 
-        // Update UI
-        document.querySelectorAll('.sort-btn').forEach(b => {
-            b.classList.remove('active');
-            const type = b.getAttribute('data-sort');
-            const label = b.textContent.replace(/[↑↓]/, '').trim();
-            b.textContent = label;
-        });
+        // Save settings
+        window.electronAPI.saveSortSettings({ type: currentSort, order: currentOrder });
 
-        btn.classList.add('active');
-        const arrow = currentOrder === 'asc' ? '↑' : '↓';
-        const baseLabel = btn.textContent.replace(/[↑↓]/, '').trim();
-        btn.textContent = `${baseLabel} ${arrow}`;
+        // Update UI
+        updateSortUI();
 
         applyFilters(true);
     });
@@ -485,11 +505,15 @@ function renderGrid(data, keepSelection = false) {
             const fileName = imagePath.split(/[\\/]/).pop();
             const card = document.createElement('div');
             card.className = 'image-card';
+            card.draggable = (currentSort === 'manual'); // Only draggable in manual mode
+
             if (selectedImages.has(imagePath)) {
                 card.classList.add('selected');
                 // Update lastSelectedCardIndex if it's the only one selected or logically needs restoration
             }
             card.setAttribute('data-name', fileName);
+            card.setAttribute('data-path', imagePath);
+            card.setAttribute('data-index', index);
 
             const checkbox = document.createElement('div');
             checkbox.className = 'checkbox-overlay';
@@ -515,12 +539,93 @@ function renderGrid(data, keepSelection = false) {
                 openLightbox([imagePath], 0, false);
             });
 
+            // Drag and Drop listeners
+            if (currentSort === 'manual') {
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('dragleave', handleDragLeave);
+                card.addEventListener('drop', handleDrop);
+            }
+
             imageGrid.appendChild(card);
         });
     }
 
     // Refresh the details pane to reflect the new grid state (and restore selection check states)
     updateDetailsPane();
+}
+
+let draggedItemPath = null;
+
+function handleDragStart(e) {
+    draggedItemPath = e.target.closest('.image-card').getAttribute('data-path');
+    e.target.closest('.image-card').classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    const targetCard = e.target.closest('.image-card');
+    const draggingCard = document.querySelector('.image-card.dragging');
+
+    if (targetCard && draggingCard && targetCard !== draggingCard) {
+        const children = Array.from(imageGrid.children);
+        const draggingIdx = children.indexOf(draggingCard);
+        const targetIdx = children.indexOf(targetCard);
+
+        if (draggingIdx < targetIdx) {
+            imageGrid.insertBefore(draggingCard, targetCard.nextSibling);
+        } else {
+            imageGrid.insertBefore(draggingCard, targetCard);
+        }
+    }
+}
+
+function handleDragLeave(e) {
+    const card = e.target.closest('.image-card');
+    if (card) {
+        card.classList.remove('drag-over');
+    }
+}
+
+async function handleDrop(e) {
+    e.preventDefault();
+    const draggedCard = document.querySelector('.image-card.dragging');
+    if (draggedCard) draggedCard.classList.remove('dragging');
+
+    // Clear any lingering drag-over classes
+    document.querySelectorAll('.image-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+
+    // Sync allImagesData with the new DOM order
+    const newPathOrder = Array.from(imageGrid.querySelectorAll('.image-card'))
+        .map(card => card.getAttribute('data-path'));
+
+    if (newPathOrder.length > 0) {
+        // Rebuild allImagesData in the new order
+        const dataMap = new Map(allImagesData.map(img => [img.path, img]));
+        const sortedData = newPathOrder.map(path => dataMap.get(path)).filter(Boolean);
+
+        // Merge with items not currently visible in the grid (e.g. filtered out)
+        const updatedPaths = new Set(newPathOrder);
+        const remainingData = allImagesData.filter(img => !updatedPaths.has(img.path));
+
+        allImagesData = [...sortedData, ...remainingData];
+
+        // Update orders and persist
+        await saveManualOrder();
+
+        // Final re-render to ensure everything (indices, etc.) is perfectly synced
+        applyFilters(true);
+    }
+}
+
+async function saveManualOrder() {
+    // Generate simple sequential orders based on current list
+    const promises = allImagesData.map((img, idx) => {
+        img.order = idx * 10; // Use interval of 10 for easier insertions if needed later
+        return window.electronAPI.saveFileOrder(img.path, img.order);
+    });
+    return Promise.all(promises);
 }
 
 async function loadImages(folderPath) {

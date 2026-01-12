@@ -218,7 +218,7 @@ main {
 
 .preview-container {
     width: 100%;
-    aspect-ratio: 16/9;
+    aspect-ratio: 1/1;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
     overflow: hidden;
@@ -332,8 +332,18 @@ main {
 }
 
 .image-card.selected {
-    border: 2px solid var(--accent-color);
-    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+.image-card.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.image-card.drag-over {
+    border: 2px dashed var(--accent-color);
+    transform: scale(1.02);
 }
 
 .image-card .checkbox-overlay {

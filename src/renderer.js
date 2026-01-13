@@ -894,7 +894,7 @@ async function handleDrop(e) {
 async function saveManualOrder() {
     // Generate simple sequential orders based on current list
     const promises = allImagesData.map((img, idx) => {
-        img.order = idx * 10; // Use interval of 10 for easier insertions if needed later
+        img.order = (idx + 1) * 10; // Use interval of 10 for easier insertions if needed later, starting from 10
         return window.electronAPI.saveFileOrder(img.path, img.order);
     });
     return Promise.all(promises);

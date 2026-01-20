@@ -144,32 +144,65 @@ function updateSortUI() {
 
 function renderDynamicLabels() {
     // Collect all labels currently present in the loaded images data
-    const adhocLabels = new Set();
+    // Map: LabelName -> GroupName
+    const labelGroupMap = new Map();
+
+    // 1. Initialize with Master Labels (Highest Priority)
+    masterLabels.forEach(l => {
+        labelGroupMap.set(l.name, l.group);
+    });
+
+    // 2. Scan images for labels
     allImagesData.forEach(img => {
         if (img.labels) {
-            img.labels.forEach(l => adhocLabels.add(l));
+            img.labels.forEach(l => {
+                // If already defined by master label, skip (master wins)
+                if (labelGroupMap.has(l)) return;
+
+                // Check if image metadata has specific group for this label
+                // We need to ensure getImages returns labelGroups now?
+                // Actually, main.js getImages implementation needs check.
+                // Assuming allImagesData items now might have labelGroups property if we updated getImages?
+                // Wait, getImages in main.js calls getMetadataForFile but does it return labelGroups?
+                // Let's check main.js getImages/readdir logic. 
+                // Since I modified getMetadataForFile in main.js, I need to make sure 'get-images' returns it.
+                // Assuming it does (or I will fix it next), let's use it.
+
+                let adhocGroup = '未分類';
+                if (img.labelGroups && img.labelGroups[l]) {
+                    adhocGroup = img.labelGroups[l];
+                }
+
+                // If multiple images have same label but different groups, 
+                // we treat the first one encountered as the ad-hoc definition, 
+                // or maybe "未分類" if inconsistent? 
+                // For simplicity, first writer wins for ad-hoc, or prefer existing if not '未分類'.
+
+                if (!labelGroupMap.has(l)) {
+                    labelGroupMap.set(l, adhocGroup);
+                }
+            });
         }
     });
 
     // Also include labels currently suggested by AI
-    aiSuggestedLabels.forEach(l => adhocLabels.add(l));
+    aiSuggestedLabels.forEach(l => {
+        if (!labelGroupMap.has(l)) {
+            labelGroupMap.set(l, '未分類');
+        }
+    });
 
     // Grouping structure: { groupName: [labelName, ...] }
     const groups = {};
 
-    // First, initialize with master labels
-    masterLabels.forEach(l => {
-        if (!groups[l.group]) groups[l.group] = [];
-        groups[l.group].push(l.name);
+    labelGroupMap.forEach((group, name) => {
+        if (!groups[group]) groups[group] = [];
+        groups[group].push(name);
     });
 
-    // Then, add adhoc labels that aren't in master labels
-    const masterNames = new Set(masterLabels.map(l => l.name));
-    Array.from(adhocLabels).sort().forEach(label => {
-        if (!masterNames.has(label)) {
-            if (!groups['未分類']) groups['未分類'] = [];
-            groups['未分類'].push(label);
-        }
+    // Sort labels within groups
+    Object.keys(groups).forEach(g => {
+        groups[g].sort();
     });
 
     // Save current filter state to restore after re-render

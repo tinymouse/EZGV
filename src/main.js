@@ -78,8 +78,8 @@ function setupAutoUpdater() {
         dialog.showMessageBox(mainWindow, {
             type: 'info',
             title: 'アップデートあり',
-            message: `新しいバージョン ${info.version} が利用可能です。\nダウンロードしますか？`,
-            buttons: ['ダウンロード', '後で'],
+            message: `新しいバージョン ${info.version} が利用可能です。\n今すぐダウンロードしますか？`,
+            buttons: ['する', '後で'],
             defaultId: 0,
             cancelId: 1
         }).then((result) => {
@@ -422,6 +422,7 @@ function getLabelFilePath(imagePath) {
 }
 
 // Metadata Management
+// Metadata Management
 function getMetadataForFile(imagePath) {
     try {
         const txtPath = getLabelFilePath(imagePath);
@@ -432,6 +433,7 @@ function getMetadataForFile(imagePath) {
                 let order = 1000000;
                 let prevName = null;
                 let labels = [];
+                let labelGroups = {}; // Map label -> group
 
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i];
@@ -439,15 +441,27 @@ function getMetadataForFile(imagePath) {
                         order = parseInt(line.replace('ORDER:', '').trim()) || 1000000;
                     } else if (line.startsWith('PREV_NAME:')) {
                         prevName = line.replace('PREV_NAME:', '').trim();
+                    } else if (line.includes('[GROUP:')) {
+                        // Check for "LabelName [GROUP: GroupName]" format
+                        const match = line.match(/^(.*)\s\[GROUP:\s*(.*)\]$/);
+                        if (match && match.length === 3) {
+                            const name = match[1].trim();
+                            const group = match[2].trim();
+                            labels.push(name);
+                            labelGroups[name] = group;
+                        } else {
+                            // Fallback if parsing fails or malformed
+                            labels.push(line);
+                        }
                     } else {
                         labels.push(line);
                     }
                 }
-                return { order, labels, prevName };
+                return { order, labels, prevName, labelGroups };
             }
         }
     } catch (e) { }
-    return { order: 1000000, labels: [], prevName: null };
+    return { order: 1000000, labels: [], prevName: null, labelGroups: {} };
 }
 
 ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
@@ -456,10 +470,32 @@ ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
         const txtPath = getLabelFilePath(filePath);
         const fileName = path.basename(filePath);
 
+        // Access master labels to record groups
+        const settings = loadSettings();
+        const masterLabels = settings.masterLabels || [];
+        const masterMap = new Map();
+
+        // Normalize object/string structure
+        if (masterLabels.length > 0) {
+            if (typeof masterLabels[0] === 'string') {
+                // old format, ignore groups or treat as default
+            } else {
+                masterLabels.forEach(l => masterMap.set(l.name, l.group));
+            }
+        }
+
         const lines = [fileName];
         if (metadata.order !== 1000000) lines.push(`ORDER: ${metadata.order}`);
         if (metadata.prevName) lines.push(`PREV_NAME: ${metadata.prevName}`);
-        lines.push(...labels);
+
+        labels.forEach(label => {
+            const group = masterMap.get(label);
+            if (group) {
+                lines.push(`${label} [GROUP: ${group}]`);
+            } else {
+                lines.push(label);
+            }
+        });
 
         fs.writeFileSync(txtPath, lines.join('\n'), 'utf-8');
         return { success: true };
@@ -649,6 +685,7 @@ ipcMain.handle('get-images', async (event, folderPath) => {
                         images.push({
                             path: filePath,
                             labels: metadata.labels,
+                            labelGroups: metadata.labelGroups, // Return label->group map
                             order: metadata.order,
                             mtime: stat.mtimeMs
                         });

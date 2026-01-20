@@ -1,6 +1,6 @@
 {
     "name": "ezgv",
-    "version": "0.9.17",
+    "version": "0.9.18",
     "description": "EZ 画像管理",
     "author": {
         "name": "Tiny Mouse",
@@ -28,12 +28,6 @@
         "build": "electron-builder build"
     },
     "build": {
-        "publish": {
-            "provider": "github",
-            "owner": "tinymouse",
-            "repo": "EZGV",
-            "releaseType": "release"
-        },
         "appId": "jp.tinymouse.ezgv",
         "productName": "EZ 画像管理",
         "copyright": "Copyright © 2026 Tiny Mouse",
@@ -59,6 +53,12 @@
             "target": "deb",
             "icon": "res/icon/icon.png",
             "category": "Utility"
+        },
+        "publish": {
+            "provider": "github",
+            "owner": "tinymouse",
+            "repo": "EZGV",
+            "releaseType": "release"
         }
     }
 }

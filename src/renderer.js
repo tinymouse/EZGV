@@ -359,7 +359,9 @@ async function updateDetailsPane() {
 
             selectedImages.forEach(path => {
                 const card = allImageCards.find(c => c.path === path);
-                if (card && card.labels && card.labels.includes(labelName)) {
+                const hasReal = card && card.labels && card.labels.includes(labelName);
+                const hasAi = pendingAiSuggestions.has(path) && pendingAiSuggestions.get(path).has(labelName);
+                if (hasReal || hasAi) {
                     matchCount++;
                 }
             });
@@ -1385,35 +1387,8 @@ autoLabelBtn.addEventListener('click', async () => {
         }
 
         renderDynamicLabels();
-        // Note: renderDynamicLabels() calls updateDetailsPane(), which resets checkboxes to 'real' labels.
-
-        // Apply AI suggestions visually to the checkboxes
-        const checkboxes = getDetailCheckboxes();
-        const totalCount = imagesToProcess.length;
-
-        Object.keys(checkboxes).forEach(labelName => {
-            const cb = checkboxes[labelName];
-
-            // Calculate aggregate state for this label across AI suggestions + Existing labels
-            let countWithLabel = 0;
-            imagesToProcess.forEach(path => {
-                const card = allImageCards.find(c => c.path === path);
-                const hasReal = card && card.labels && card.labels.includes(labelName);
-                const hasAi = pendingAiSuggestions.has(path) && pendingAiSuggestions.get(path).has(labelName);
-                if (hasReal || hasAi) countWithLabel++;
-            });
-
-            if (countWithLabel === totalCount) {
-                cb.checked = true;
-                cb.indeterminate = false;
-            } else if (countWithLabel > 0) {
-                cb.checked = false;
-                cb.indeterminate = true;
-            } else {
-                cb.checked = false;
-                cb.indeterminate = false;
-            }
-        });
+        // Since updateDetailsPane (called by renderDynamicLabels) now checks pendingAiSuggestions,
+        // the checkboxes will stay checked correctly.
 
         autoLabelBtn.innerHTML = '完了!';
         setTimeout(() => {

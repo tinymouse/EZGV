@@ -1,0 +1,37 @@
+name: release
+
+on:
+    push:
+
+jobs:
+    release:
+        runs-on: ${{ matrix.os }}
+        permissions:
+            contents: write
+        strategy:
+            matrix:
+                os: [windows-latest, ubuntu-latest]
+
+        steps:
+            # Checkout the repository
+            -   uses: actions/checkout@main
+
+            # Set up Node.js
+            -   uses: actions/setup-node@main
+                with:
+                    node-version: '22'
+
+            # Install dependencies
+            -   run: npm install
+
+            # Install dependencies (Linux only)
+            -   if: matrix.os == 'ubuntu-latest'
+                run: |
+                    sudo apt-get update
+                    sudo apt-get install -y libarchive-tools
+
+            # Build & Release
+            -   uses: samuelmeuli/action-electron-builder@v1 
+                with:
+                    github_token: ${{ secrets.GITHUB_TOKEN }}
+                    release: true

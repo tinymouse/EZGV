@@ -1,6 +1,6 @@
 {
     "name": "ezgv",
-    "version": "0.9.16",
+    "version": "0.9.17",
     "description": "EZ 画像管理",
     "author": {
         "name": "Tiny Mouse",
@@ -31,7 +31,8 @@
         "publish": {
             "provider": "github",
             "owner": "tinymouse",
-            "repo": "EZGV"
+            "repo": "EZGV",
+            "releaseType": "release"
         },
         "appId": "jp.tinymouse.ezgv",
         "productName": "EZ 画像管理",

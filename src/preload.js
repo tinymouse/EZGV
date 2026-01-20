@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveGeminiModel: (model) => ipcRenderer.invoke('save-gemini-model', model),
     getAiAllowNewLabels: () => ipcRenderer.invoke('get-ai-allow-new-labels'),
     saveAiAllowNewLabels: (value) => ipcRenderer.invoke('save-ai-allow-new-labels', value),
+    getImmediateFilter: () => ipcRenderer.invoke('get-immediate-filter'),
+    saveImmediateFilter: (enabled) => ipcRenderer.invoke('save-immediate-filter', enabled),
     getSortSettings: () => ipcRenderer.invoke('get-sort-settings'),
     saveSortSettings: (settings) => ipcRenderer.invoke('save-sort-settings', settings),
     getRenameSettings: () => ipcRenderer.invoke('get-rename-settings'),

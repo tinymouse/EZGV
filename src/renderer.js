@@ -38,6 +38,7 @@ const addMasterLabelBtn = document.getElementById('add-master-label-btn');
 const geminiApiKeyInput = document.getElementById('gemini-api-key');
 const geminiModelInput = document.getElementById('gemini-model');
 const aiAllowNewLabelsCheckbox = document.getElementById('ai-allow-new-labels');
+const immediateFilterCheckbox = document.getElementById('immediate-filter-checkbox');
 
 const autoLabelBtn = document.getElementById('auto-label-btn');
 
@@ -71,6 +72,13 @@ async function loadMasterLabels() {
 
     const allowNew = await window.electronAPI.getAiAllowNewLabels();
     if (aiAllowNewLabelsCheckbox) aiAllowNewLabelsCheckbox.checked = allowNew !== false;
+
+    // Load Immediate Filter Setting
+    const immediateFilter = await window.electronAPI.getImmediateFilter();
+    if (immediateFilterCheckbox) {
+        immediateFilterCheckbox.checked = immediateFilter;
+        updateFilterBtnVisibility(immediateFilter);
+    }
 
     // Load Sort Settings
     const sortSettings = await window.electronAPI.getSortSettings();
@@ -1249,10 +1257,32 @@ closeModalBtn.addEventListener('click', async () => {
     if (aiAllowNewLabelsCheckbox) {
         await window.electronAPI.saveAiAllowNewLabels(aiAllowNewLabelsCheckbox.checked);
     }
+    if (immediateFilterCheckbox) {
+        await window.electronAPI.saveImmediateFilter(immediateFilterCheckbox.checked);
+        updateFilterBtnVisibility(immediateFilterCheckbox.checked);
+    }
 
     renderDynamicLabels();
 
     labelModal.classList.add('hidden');
+});
+
+function updateFilterBtnVisibility(isImmediate) {
+    if (filterBtn) {
+        if (isImmediate) {
+            filterBtn.style.display = 'none';
+        } else {
+            filterBtn.style.display = 'block'; // or 'flex' depending on CSS, but 'block' is safe usually or null
+            filterBtn.style.display = ''; // revert to CSS default
+        }
+    }
+}
+
+// Event Delegation for Filter Checkboxes
+filterContainer.addEventListener('change', (e) => {
+    if (e.target.matches('input[type="checkbox"]') && immediateFilterCheckbox && immediateFilterCheckbox.checked) {
+        applyFilters();
+    }
 });
 
 autoLabelBtn.addEventListener('click', async () => {

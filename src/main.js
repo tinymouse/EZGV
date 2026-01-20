@@ -111,7 +111,7 @@ function createWindow() {
     });
 }
 
-app.whenReady().then(() => {
+app.on('ready', function () {
     // 2. プロトコルハンドラの設定 (より確実な方法に変更)
     protocol.handle('local-image', async (request) => {
         try {
@@ -238,6 +238,16 @@ ipcMain.handle('get-ai-allow-new-labels', () => {
 
 ipcMain.handle('save-ai-allow-new-labels', (event, value) => {
     saveSettings({ aiAllowNewLabels: value });
+    return { success: true };
+});
+
+ipcMain.handle('get-immediate-filter', () => {
+    const settings = loadSettings();
+    return settings.immediateFilter === true;
+});
+
+ipcMain.handle('save-immediate-filter', (event, enabled) => {
+    saveSettings({ immediateFilter: enabled });
     return { success: true };
 });
 

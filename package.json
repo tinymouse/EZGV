@@ -1,7 +1,17 @@
 {
     "name": "ezgv",
-    "version": "0.9.0",
+    "version": "0.9.16",
     "description": "EZ 画像管理",
+    "author": {
+        "name": "Tiny Mouse",
+        "email": "khc04052@nifty.com"
+    },
+    "homepage": "https://github.com/tinymouse/ezgv",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tinymouse/EZGV.git"
+    },
+    "license": "ISC",
     "main": "src/main.js",
     "type": "commonjs",
     "devDependencies": {
@@ -9,26 +19,23 @@
         "electron-builder": "^26.4.0"
     },
     "dependencies": {
-        "@google/generative-ai": "^0.24.1"
+        "@google/generative-ai": "^0.24.1",
+        "electron-log": "^5.4.3",
+        "electron-updater": "^6.7.3"
     },
     "scripts": {
         "start": "electron .",
-        "build": "electron-builder",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "build": "electron-builder build"
     },
-    "homepage": "https://github.com/tinymouse/ezgv",
-    "author": {
-        "name": "Tiny Mouse",
-        "email": "khc04052@nifty.com"
-    },
-    "license": "ISC",
     "build": {
+        "publish": {
+            "provider": "github",
+            "owner": "tinymouse",
+            "repo": "EZGV"
+        },
         "appId": "jp.tinymouse.ezgv",
         "productName": "EZ 画像管理",
         "copyright": "Copyright © 2026 Tiny Mouse",
-        "files": [
-            "src/**/*"
-        ],
         "directories": {
             "output": "dist"
         },

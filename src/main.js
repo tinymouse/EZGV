@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 ipcMain.handle('delete-file', async (event, filePath) => {
@@ -60,6 +61,48 @@ function saveSettings(settings) {
     } catch (e) {
         console.error('Failed to save settings', e);
     }
+}
+
+function setupAutoUpdater() {
+    autoUpdater.autoDownload = false;
+
+    // ログ設定（開発時確認用）
+    autoUpdater.logger = require("electron-log");
+    autoUpdater.logger.transports.file.level = "info";
+
+    autoUpdater.on('error', (error) => {
+        console.error('Update error:', error);
+    });
+
+    autoUpdater.on('update-available', (info) => {
+        dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            title: 'アップデートあり',
+            message: `新しいバージョン ${info.version} が利用可能です。\nダウンロードしますか？`,
+            buttons: ['ダウンロード', '後で'],
+            defaultId: 0,
+            cancelId: 1
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.downloadUpdate();
+            }
+        });
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            title: 'ダウンロード完了',
+            message: 'アップデートのダウンロードが完了しました。\n今すぐ再起動してインストールしますか？',
+            buttons: ['再起動して更新', '後で'],
+            defaultId: 0,
+            cancelId: 1
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.quitAndInstall();
+            }
+        });
+    });
 }
 
 function createWindow() {
@@ -126,6 +169,11 @@ app.on('ready', function () {
     });
 
     createWindow();
+
+    if (app.isPackaged) {
+        setupAutoUpdater();
+        autoUpdater.checkForUpdates();
+    }
 
     app.on('activate', function () {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();

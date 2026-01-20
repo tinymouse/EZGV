@@ -39,6 +39,7 @@ const geminiApiKeyInput = document.getElementById('gemini-api-key');
 const geminiModelInput = document.getElementById('gemini-model');
 const aiAllowNewLabelsCheckbox = document.getElementById('ai-allow-new-labels');
 const immediateFilterCheckbox = document.getElementById('immediate-filter-checkbox');
+const immediateLabelSaveCheckbox = document.getElementById('immediate-label-save-checkbox');
 
 const autoLabelBtn = document.getElementById('auto-label-btn');
 
@@ -78,6 +79,13 @@ async function loadMasterLabels() {
     if (immediateFilterCheckbox) {
         immediateFilterCheckbox.checked = immediateFilter;
         updateFilterBtnVisibility(immediateFilter);
+    }
+
+    // Load Immediate Label Save Setting
+    const immediateLabelSave = await window.electronAPI.getImmediateLabelSave();
+    if (immediateLabelSaveCheckbox) {
+        immediateLabelSaveCheckbox.checked = immediateLabelSave;
+        updateSaveLabelsBtnVisibility(immediateLabelSave);
     }
 
     // Load Sort Settings
@@ -556,12 +564,14 @@ splitBtn.addEventListener('click', async () => {
 
 // ... helper ...
 
-saveLabelsBtn.addEventListener('click', async () => {
+async function saveCurrentLabels() {
     const count = selectedImages.size;
     if (count === 0) return;
 
-    saveLabelsBtn.disabled = true;
-    saveLabelsBtn.textContent = '保存中...';
+    if (saveLabelsBtn) {
+        saveLabelsBtn.disabled = true;
+        saveLabelsBtn.textContent = '保存中...';
+    }
 
     try {
         const updates = {};
@@ -598,7 +608,7 @@ saveLabelsBtn.addEventListener('click', async () => {
             promises.push(window.electronAPI.saveFileLabels(path, finalLabels).then(res => {
                 if (res.success) {
                     cardRef.labels = finalLabels;
-                    // Also update allImagesData
+                    // Also update data source
                     const dataItem = allImagesData.find(d => d.path === path);
                     if (dataItem) dataItem.labels = finalLabels;
                 }
@@ -608,26 +618,28 @@ saveLabelsBtn.addEventListener('click', async () => {
 
         await Promise.all(promises);
 
-        aiSuggestedLabels.clear(); // Clear AI suggestions once saved
-        pendingAiSuggestions.clear();
+        // Remove processed AI suggestions
+        selectedImages.forEach(path => {
+            pendingAiSuggestions.delete(path);
+        });
 
-        // Visual feedback
-        const originalText = saveLabelsBtn.textContent;
-        saveLabelsBtn.textContent = '保存完了!';
-        setTimeout(() => {
-            saveLabelsBtn.disabled = false;
-            saveLabelsBtn.textContent = '登録 (Save)';
-        }, 1000);
+        // Refresh UI
+        renderDynamicLabels();
+        // Note: renderDynamicLabels calls updateDetailsPane, which syncs checkboxes
 
-        renderDynamicLabels(); // Refresh label list (adds new ad-hoc labels)
-        updateDetailsPane();
-        applyFilters(true); // Re-apply filter and keep selection unchanged if images still match
     } catch (e) {
         console.error(e);
-        alert('エラーが発生しました');
-        saveLabelsBtn.disabled = false;
-        saveLabelsBtn.textContent = '登録 (Save)';
+        alert('ラベル保存中にエラーが発生しました');
+    } finally {
+        if (saveLabelsBtn) {
+            saveLabelsBtn.disabled = false;
+            saveLabelsBtn.textContent = '登録 (Save)';
+        }
     }
+}
+
+saveLabelsBtn.addEventListener('click', async () => {
+    await saveCurrentLabels();
 });
 
 filterBtn.addEventListener('click', () => {
@@ -1261,6 +1273,10 @@ closeModalBtn.addEventListener('click', async () => {
         await window.electronAPI.saveImmediateFilter(immediateFilterCheckbox.checked);
         updateFilterBtnVisibility(immediateFilterCheckbox.checked);
     }
+    if (immediateLabelSaveCheckbox) {
+        await window.electronAPI.saveImmediateLabelSave(immediateLabelSaveCheckbox.checked);
+        updateSaveLabelsBtnVisibility(immediateLabelSaveCheckbox.checked);
+    }
 
     renderDynamicLabels();
 
@@ -1282,6 +1298,33 @@ function updateFilterBtnVisibility(isImmediate) {
 filterContainer.addEventListener('change', (e) => {
     if (e.target.matches('input[type="checkbox"]') && immediateFilterCheckbox && immediateFilterCheckbox.checked) {
         applyFilters();
+    }
+});
+
+function updateSaveLabelsBtnVisibility(isImmediate) {
+    if (saveLabelsBtn) {
+        if (isImmediate) {
+            saveLabelsBtn.style.display = 'none';
+        } else {
+            saveLabelsBtn.style.display = 'block'; // Or flex, sticking to block for now unless flex is needed
+            saveLabelsBtn.style.display = '';
+        }
+    }
+}
+
+// Event Delegation for Detail Checkboxes (Immediate Save)
+detailLabelContainer.addEventListener('change', async (e) => {
+    // Only if immediate save is enabled
+    if (e.target.matches('input[type="checkbox"]') && immediateLabelSaveCheckbox && immediateLabelSaveCheckbox.checked) {
+        // We need to wait a tiny bit for the indeterminate state logic or other UI updates if any?
+        // Actually, the change event happens after the check state changes.
+        // But our indeterminate logic happens in updateDetailsPane which is called on selection or render.
+        // User clicking a checkbox manually changes it from indeterminate/checked/unchecked.
+
+        // If a box was indeterminate, clicking it makes it checked (usually).
+        // Since we are creating a custom tri-state logic in updateDetailsPane, standard click behavior applies here.
+        // We just save the current state of *all* checkboxes to the selected images.
+        await saveCurrentLabels();
     }
 });
 

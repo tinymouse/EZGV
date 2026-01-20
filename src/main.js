@@ -251,6 +251,16 @@ ipcMain.handle('save-immediate-filter', (event, enabled) => {
     return { success: true };
 });
 
+ipcMain.handle('get-immediate-label-save', () => {
+    const settings = loadSettings();
+    return settings.immediateLabelSave === true;
+});
+
+ipcMain.handle('save-immediate-label-save', (event, enabled) => {
+    saveSettings({ immediateLabelSave: enabled });
+    return { success: true };
+});
+
 ipcMain.handle('get-sort-settings', () => {
     const settings = loadSettings();
     return {

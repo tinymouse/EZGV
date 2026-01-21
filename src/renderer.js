@@ -142,7 +142,7 @@ function updateSortUI() {
     });
 }
 
-function renderDynamicLabels() {
+async function renderDynamicLabels() {
     // Collect all labels currently present in the loaded images data
     // Map: LabelName -> GroupName
     const labelGroupMap = new Map();
@@ -268,7 +268,7 @@ function renderDynamicLabels() {
     detailLabelContainer.appendChild(detailGroupRoot);
 
     // Re-sync UI state if images are selected
-    updateDetailsPane();
+    await updateDetailsPane();
 }
 
 function getFilterCheckboxes() {
@@ -297,6 +297,27 @@ function formatBytes(bytes, decimals = 2) {
 }
 
 async function updateDetailsPane() {
+    // Discard pending AI suggestions if selection changes away from them (and "Immediate Save" is off)
+    if (pendingAiSuggestions.size > 0) {
+        let hasOverlap = false;
+        if (selectedImages.size > 0) {
+            for (const path of selectedImages) {
+                if (pendingAiSuggestions.has(path)) {
+                    hasOverlap = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hasOverlap) {
+            pendingAiSuggestions.clear();
+            aiSuggestedLabels.clear();
+            // Refresh labels and pane
+            await renderDynamicLabels();
+            return;
+        }
+    }
+
     const count = selectedImages.size;
 
     if (count === 0) {
@@ -659,7 +680,7 @@ async function saveCurrentLabels() {
         });
 
         // Refresh UI
-        renderDynamicLabels();
+        await renderDynamicLabels();
         // Note: renderDynamicLabels calls updateDetailsPane, which syncs checkboxes
 
     } catch (e) {
@@ -681,7 +702,7 @@ filterBtn.addEventListener('click', () => {
     applyFilters();
 });
 
-function applyFilters(keepSelection = false) {
+async function applyFilters(keepSelection = false) {
     const currentFilterCheckboxes = getFilterCheckboxes();
     const activeFilters = Object.entries(currentFilterCheckboxes)
         .filter(([label, box]) => box.checked)
@@ -716,7 +737,7 @@ function applyFilters(keepSelection = false) {
         return 0;
     });
 
-    renderGrid(filtered, keepSelection);
+    await renderGrid(filtered, keepSelection);
 }
 
 // Sort Button Listeners
@@ -798,7 +819,7 @@ function handleSelection(card, index, imagePath, event) {
     updateDetailsPane();
 }
 
-function renderGrid(data, keepSelection = false) {
+async function renderGrid(data, keepSelection = false) {
     if (!keepSelection) {
         selectedImages.clear();
         lastSelectedCardIndex = -1;
@@ -879,7 +900,7 @@ function renderGrid(data, keepSelection = false) {
     }
 
     // Refresh the details pane to reflect the new grid state (and restore selection check states)
-    updateDetailsPane();
+    await updateDetailsPane();
 }
 
 let draggedItemPath = null;
@@ -964,8 +985,8 @@ async function loadImages(folderPath) {
     try {
         const imagesData = await window.electronAPI.getImages(folderPath); // Returns objects now
         allImagesData = imagesData; // Save to state
-        renderDynamicLabels();
-        applyFilters(); // Use applyFilters to ensure initial sorting
+        await renderDynamicLabels();
+        await applyFilters(); // Use applyFilters to ensure initial sorting
     } catch (error) {
         console.error('Failed to load images:', error);
         imageGrid.innerHTML = `
@@ -990,12 +1011,12 @@ let isSplitView = false; // 1 or 2 images
 
 
 // Internal helper to remove file from all UI components and state
-function removeFileFromUI(path) {
+async function removeFileFromUI(path) {
     // State
     allImagesData = allImagesData.filter(d => d.path !== path);
     selectedImages.delete(path);
     lightboxImages = lightboxImages.filter(p => p !== path);
-    renderDynamicLabels(); // Refresh in case an ad-hoc label is no longer used
+    await renderDynamicLabels(); // Refresh in case an ad-hoc label is no longer used
 
     // Grid Element
     const cardRefIndex = allImageCards.findIndex(c => c.path === path);
@@ -1006,7 +1027,7 @@ function removeFileFromUI(path) {
 }
 
 // Internal helper to update UI after one or more deletions
-function finalizeDeletionUpdates() {
+async function finalizeDeletionUpdates() {
     // Update Lightbox
     if (!lightbox.classList.contains('hidden')) {
         if (lightboxImages.length === 0) {
@@ -1021,7 +1042,7 @@ function finalizeDeletionUpdates() {
     }
 
     // Update Side Pane
-    updateDetailsPane();
+    await updateDetailsPane();
 }
 
 // Delete Logic for Lightbox (single file)
@@ -1031,8 +1052,8 @@ async function deleteImage(path) {
     try {
         const result = await window.electronAPI.deleteFile(path);
         if (result.success) {
-            removeFileFromUI(path);
-            finalizeDeletionUpdates();
+            await removeFileFromUI(path);
+            await finalizeDeletionUpdates();
         } else {
             console.error(result.error);
             alert('削除に失敗しました。');
@@ -1052,8 +1073,8 @@ async function moveImage(path) {
         const result = await window.electronAPI.moveFile(path, destDir);
 
         if (result.success) {
-            removeFileFromUI(path);
-            finalizeDeletionUpdates();
+            await removeFileFromUI(path);
+            await finalizeDeletionUpdates();
         } else {
             console.error(result.error);
             alert(`移動に失敗しました: ${result.error}`);
@@ -1180,15 +1201,24 @@ nextBtn.addEventListener('click', (e) => {
 });
 
 // Key Navigation
-document.addEventListener('keydown', (e) => {
-    if (lightbox.classList.contains('hidden')) return;
+document.addEventListener('keydown', async (e) => {
+    // Avoid triggering when typing in inputs/textareas
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-    if (e.key === 'Escape') {
-        lightbox.classList.add('hidden');
-    } else if (e.key === 'ArrowRight') {
-        navigateLightbox('next');
-    } else if (e.key === 'ArrowLeft') {
-        navigateLightbox('prev');
+    if (!lightbox.classList.contains('hidden')) {
+        if (e.key === 'Escape') {
+            lightbox.classList.add('hidden');
+        } else if (e.key === 'ArrowRight') {
+            navigateLightbox('next');
+        } else if (e.key === 'ArrowLeft') {
+            navigateLightbox('prev');
+        }
+        return;
+    }
+
+    // Main view shortcuts
+    if (e.key === 'Delete') {
+        await executeDeleteSelection();
     }
 });
 
@@ -1204,7 +1234,7 @@ viewBtn.addEventListener('click', () => {
     }
 });
 
-deleteSelectionBtn.addEventListener('click', async () => {
+async function executeDeleteSelection() {
     const imagesToDelete = Array.from(selectedImages);
     if (imagesToDelete.length === 0) return;
 
@@ -1218,14 +1248,18 @@ deleteSelectionBtn.addEventListener('click', async () => {
         try {
             const result = await window.electronAPI.deleteFile(path);
             if (result.success) {
-                removeFileFromUI(path);
+                await removeFileFromUI(path);
             }
         } catch (e) {
             console.error(`Failed to delete ${path}:`, e);
         }
     }
 
-    finalizeDeletionUpdates();
+    await finalizeDeletionUpdates();
+}
+
+deleteSelectionBtn.addEventListener('click', async () => {
+    await executeDeleteSelection();
 });
 
 moveSelectionBtn.addEventListener('click', async () => {
@@ -1313,7 +1347,7 @@ closeModalBtn.addEventListener('click', async () => {
         updateSaveLabelsBtnVisibility(immediateLabelSaveCheckbox.checked);
     }
 
-    renderDynamicLabels();
+    await renderDynamicLabels();
 
     labelModal.classList.add('hidden');
 });
@@ -1386,9 +1420,14 @@ autoLabelBtn.addEventListener('click', async () => {
             }
         }
 
-        renderDynamicLabels();
+        await renderDynamicLabels();
         // Since updateDetailsPane (called by renderDynamicLabels) now checks pendingAiSuggestions,
         // the checkboxes will stay checked correctly.
+
+        // If immediate save is enabled, save the AI suggestions now
+        if (immediateLabelSaveCheckbox && immediateLabelSaveCheckbox.checked) {
+            await saveCurrentLabels();
+        }
 
         autoLabelBtn.innerHTML = '完了!';
         setTimeout(() => {

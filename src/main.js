@@ -343,6 +343,16 @@ ipcMain.handle('save-rename-settings', (event, renameSettings) => {
     return { success: true };
 });
 
+ipcMain.handle('get-split-settings', () => {
+    const settings = loadSettings();
+    return settings.splitSettings || { rows: 1, cols: 1 };
+});
+
+ipcMain.handle('save-split-settings', (event, splitSettings) => {
+    saveSettings({ splitSettings });
+    return { success: true };
+});
+
 ipcMain.handle('auto-label-image', async (event, { filePath, masterLabels }) => {
     try {
         const settings = loadSettings();

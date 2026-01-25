@@ -28,5 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveSortSettings: (settings) => ipcRenderer.invoke('save-sort-settings', settings),
     getRenameSettings: () => ipcRenderer.invoke('get-rename-settings'),
     saveRenameSettings: (settings) => ipcRenderer.invoke('save-rename-settings', settings),
+    getSplitSettings: () => ipcRenderer.invoke('get-split-settings'),
+    saveSplitSettings: (settings) => ipcRenderer.invoke('save-split-settings', settings),
     autoLabelImage: (filePath, masterLabels) => ipcRenderer.invoke('auto-label-image', { filePath, masterLabels })
 });

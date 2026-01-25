@@ -111,6 +111,13 @@ async function loadMasterLabels() {
         if (renameSequenceDigits) renameSequenceDigits.value = renameSettings.digits || 2;
     }
 
+    // Load Split Settings
+    const splitSettings = await window.electronAPI.getSplitSettings();
+    if (splitSettings) {
+        if (splitRowsInput) splitRowsInput.value = splitSettings.rows || 1;
+        if (splitColsInput) splitColsInput.value = splitSettings.cols || 1;
+    }
+
     updateRenameUIState();
     renderDynamicLabels();
 }
@@ -501,6 +508,20 @@ function updateRenamePreview() {
             window.electronAPI.saveRenameSettings(settings);
         };
         el.addEventListener('input', handler);
+        el.addEventListener('change', handler);
+    }
+});
+
+// Split Listeners
+[splitRowsInput, splitColsInput].forEach(el => {
+    if (el) {
+        const handler = () => {
+            const settings = {
+                rows: parseInt(splitRowsInput.value) || 1,
+                cols: parseInt(splitColsInput.value) || 1
+            };
+            window.electronAPI.saveSplitSettings(settings);
+        };
         el.addEventListener('change', handler);
     }
 });

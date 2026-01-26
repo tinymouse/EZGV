@@ -144,10 +144,26 @@ main {
 .sort-controls {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem;
     margin-top: 0.8rem;
     padding-top: 0.8rem;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.thumbnail-size-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.thumbnail-size-selector select {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
 }
 
 .sort-options {
@@ -275,7 +291,7 @@ main {
 .image-grid {
     display: grid;
     /* auto-fill より auto-fit の方がスペースを埋める挙動が安定する場合が多い */
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--thumbnail-size, 180px), 1fr));
     grid-auto-rows: max-content;
     /* 行の高さをコンテンツに合わせる */
     gap: 1.5rem;

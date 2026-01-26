@@ -62,6 +62,7 @@ const renameBtn = document.getElementById('rename-btn');
 const splitRowsInput = document.getElementById('split-rows');
 const splitColsInput = document.getElementById('split-cols');
 const splitBtn = document.getElementById('split-btn');
+const thumbnailSizeSelect = document.getElementById('thumbnail-size-select');
 
 async function loadMasterLabels() {
     masterLabels = await window.electronAPI.getMasterLabels();
@@ -116,6 +117,13 @@ async function loadMasterLabels() {
     if (splitSettings) {
         if (splitRowsInput) splitRowsInput.value = splitSettings.rows || 1;
         if (splitColsInput) splitColsInput.value = splitSettings.cols || 1;
+    }
+
+    // Load Thumbnail Size Settings
+    const thumbSize = await window.electronAPI.getThumbnailSize();
+    if (thumbnailSizeSelect) {
+        thumbnailSizeSelect.value = thumbSize || 'small';
+        updateThumbnailSize(thumbSize || 'small');
     }
 
     updateRenameUIState();
@@ -525,6 +533,21 @@ function updateRenamePreview() {
         el.addEventListener('change', handler);
     }
 });
+
+function updateThumbnailSize(size) {
+    let px = 180;
+    if (size === 'medium') px = 270;
+    if (size === 'large') px = 360;
+    document.documentElement.style.setProperty('--thumbnail-size', `${px}px`);
+}
+
+if (thumbnailSizeSelect) {
+    thumbnailSizeSelect.addEventListener('change', () => {
+        const size = thumbnailSizeSelect.value;
+        updateThumbnailSize(size);
+        window.electronAPI.saveThumbnailSize(size);
+    });
+}
 
 renameBtn.addEventListener('click', async () => {
     // Sort selected images by the current grid order (allImagesData)

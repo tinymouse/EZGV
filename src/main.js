@@ -322,6 +322,16 @@ ipcMain.handle('save-sort-settings', (event, { type, order }) => {
     return { success: true };
 });
 
+ipcMain.handle('get-thumbnail-size', () => {
+    const settings = loadSettings();
+    return settings.thumbnailSize || 'small';
+});
+
+ipcMain.handle('save-thumbnail-size', (event, size) => {
+    saveSettings({ thumbnailSize: size });
+    return { success: true };
+});
+
 ipcMain.handle('get-rename-settings', () => {
     const settings = loadSettings();
     return settings.renameSettings || {

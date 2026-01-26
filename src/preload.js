@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveImmediateLabelSave: (enabled) => ipcRenderer.invoke('save-immediate-label-save', enabled),
     getSortSettings: () => ipcRenderer.invoke('get-sort-settings'),
     saveSortSettings: (settings) => ipcRenderer.invoke('save-sort-settings', settings),
+    getThumbnailSize: () => ipcRenderer.invoke('get-thumbnail-size'),
+    saveThumbnailSize: (size) => ipcRenderer.invoke('save-thumbnail-size', size),
     getRenameSettings: () => ipcRenderer.invoke('get-rename-settings'),
     saveRenameSettings: (settings) => ipcRenderer.invoke('save-rename-settings', settings),
     getSplitSettings: () => ipcRenderer.invoke('get-split-settings'),

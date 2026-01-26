@@ -62,6 +62,12 @@ const renameBtn = document.getElementById('rename-btn');
 const splitRowsInput = document.getElementById('split-rows');
 const splitColsInput = document.getElementById('split-cols');
 const splitBtn = document.getElementById('split-btn');
+
+const resizeWidthInput = document.getElementById('resize-width');
+const resizeHeightInput = document.getElementById('resize-height');
+const resizeKeepRatioCheckbox = document.getElementById('resize-keep-ratio');
+const resizeBtn = document.getElementById('resize-btn');
+
 const thumbnailSizeSelect = document.getElementById('thumbnail-size-select');
 
 async function loadMasterLabels() {
@@ -364,10 +370,18 @@ async function updateDetailsPane() {
         }
 
         if (detailPreview.complete) {
-            detailResolution.textContent = `${detailPreview.naturalWidth} x ${detailPreview.naturalHeight}`;
+            const w = detailPreview.naturalWidth;
+            const h = detailPreview.naturalHeight;
+            detailResolution.textContent = `${w} x ${h}`;
+            if (resizeWidthInput) resizeWidthInput.value = w;
+            if (resizeHeightInput) resizeHeightInput.value = h;
         } else {
             detailPreview.onload = () => {
-                detailResolution.textContent = `${detailPreview.naturalWidth} x ${detailPreview.naturalHeight}`;
+                const w = detailPreview.naturalWidth;
+                const h = detailPreview.naturalHeight;
+                detailResolution.textContent = `${w} x ${h}`;
+                if (resizeWidthInput) resizeWidthInput.value = w;
+                if (resizeHeightInput) resizeHeightInput.value = h;
             };
         }
         viewBtn.disabled = false;
@@ -659,6 +673,87 @@ splitBtn.addEventListener('click', async () => {
     } finally {
         splitBtn.disabled = false;
         splitBtn.innerHTML = originalText;
+    }
+});
+
+// Resize Logic
+if (resizeWidthInput && resizeHeightInput) {
+    const updateOtherDim = (changedDim) => {
+        if (!resizeKeepRatioCheckbox.checked) return;
+
+        const w = parseInt(resizeWidthInput.value);
+        const h = parseInt(resizeHeightInput.value);
+        if (isNaN(w) || isNaN(h)) return;
+
+        // We need the original ratio. We can get it from detailPreview.
+        const originalW = detailPreview.naturalWidth;
+        const originalH = detailPreview.naturalHeight;
+        if (!originalW || !originalH) return;
+
+        const ratio = originalW / originalH;
+
+        if (changedDim === 'width') {
+            resizeHeightInput.value = Math.round(w / ratio);
+        } else {
+            resizeWidthInput.value = Math.round(h * ratio);
+        }
+    };
+
+    resizeWidthInput.addEventListener('input', () => updateOtherDim('width'));
+    resizeHeightInput.addEventListener('input', () => updateOtherDim('height'));
+}
+
+resizeBtn.addEventListener('click', async () => {
+    const imagesArray = Array.from(selectedImages);
+    if (imagesArray.length === 0) return;
+
+    const width = parseInt(resizeWidthInput.value);
+    const height = parseInt(resizeHeightInput.value);
+
+    if (isNaN(width) || width < 1 || isNaN(height) || height < 1) {
+        alert('正当なサイズを入力してください。');
+        return;
+    }
+
+    if (!confirm(`${imagesArray.length}件のファイルを ${width}x${height} にリサイズしますか？`)) return;
+
+    resizeBtn.disabled = true;
+    const originalText = resizeBtn.innerHTML;
+    resizeBtn.innerHTML = 'リサイズ中...';
+
+    try {
+        let totalCreated = 0;
+        for (const filePath of imagesArray) {
+            // If multiple images are selected, they might have different ratios.
+            // If "keep ratio" is on, we should calculate for EACH image.
+            // But the UI currently shows fixed values.
+            // Let's refine: if keep ratio is on, we should probably pass a target dimension and maintain ratio per file.
+            // However, the user request says "縦サイズを変更したら横サイズを計算してセットする" (singular), 
+            // suggesting they are looking at one image or want all images to be exactly this size.
+
+            // To stick to the request strictly: use the values from the inputs.
+            const res = await window.electronAPI.resizeImage(filePath, width, height);
+            if (res.success) {
+                totalCreated++;
+            } else {
+                console.error(`Resize failed for ${filePath}:`, res.error);
+                alert(`${path.basename(filePath)} のリサイズに失敗しました: ${res.error}`);
+            }
+        }
+
+        if (totalCreated > 0) {
+            alert(`${totalCreated}枚のリサイズ画像を作成しました。`);
+            const pathTxt = folderPathDisplay.textContent;
+            if (pathTxt && pathTxt !== '未選択') {
+                loadImages(pathTxt);
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        alert('エラーが発生しました');
+    } finally {
+        resizeBtn.disabled = false;
+        resizeBtn.innerHTML = originalText;
     }
 });
 

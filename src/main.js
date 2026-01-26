@@ -650,6 +650,42 @@ ipcMain.handle('split-image', async (event, { filePath, rows, cols }) => {
     }
 });
 
+ipcMain.handle('resize-image', async (event, { filePath, width, height }) => {
+    try {
+        const dir = path.dirname(filePath);
+        const originalBase = path.basename(filePath);
+        const ext = path.extname(filePath);
+        const nameWithoutExt = path.basename(filePath, ext);
+
+        const img = nativeImage.createFromPath(filePath);
+        if (img.isEmpty()) {
+            throw new Error('画像の読み込みに失敗しました。');
+        }
+
+        const resized = img.resize({ width, height });
+        const newFileName = `${nameWithoutExt}_${width}x${height}${ext}`;
+        const newPath = path.join(dir, newFileName);
+
+        let buffer;
+        if (ext.toLowerCase() === '.png') {
+            buffer = resized.toPNG();
+        } else {
+            buffer = resized.toJPEG(95);
+        }
+
+        fs.writeFileSync(newPath, buffer);
+
+        const newLabelPath = getLabelFilePath(newPath);
+        const lines = [newFileName, `PREV_NAME: ${originalBase}`];
+        fs.writeFileSync(newLabelPath, lines.join('\n'), 'utf-8');
+
+        return { success: true, newPath };
+    } catch (e) {
+        console.error('Resize error:', e);
+        return { success: false, error: e.message };
+    }
+});
+
 ipcMain.handle('move-file', async (event, { srcPath, destDir }) => {
     try {
         if (!fs.existsSync(destDir)) {

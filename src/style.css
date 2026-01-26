@@ -1118,3 +1118,54 @@ main {
     margin-top: 10px;
     justify-content: center;
 }
+
+/* Resize Section */
+.resize-section {
+    margin-top: 1.2rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.resize-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+.resize-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+}
+
+.resize-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.resize-row span {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.resize-row input[type="number"] {
+    background: white;
+    color: #0f172a;
+    border: none;
+    font-size: 0.95rem;
+    border-radius: 4px;
+    padding: 0.1rem 0.3rem;
+    width: 80px;
+    cursor: text;
+}
+
+.resize-execute-btn {
+    width: 100%;
+    justify-content: center;
+}

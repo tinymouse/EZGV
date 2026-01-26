@@ -280,6 +280,41 @@
                             分割実行
                         </button>
                     </div>
+
+                    <div class="detail-item resize-section">
+                        <label>画像リサイズ</label>
+                        <div class="resize-controls">
+                            <div class="resize-grid">
+                                <div class="resize-row">
+                                    <span>横幅:</span>
+                                    <input type="number" id="resize-width" min="1" step="1">
+                                    <span>px</span>
+                                </div>
+                                <div class="resize-row">
+                                    <span>縦幅:</span>
+                                    <input type="number" id="resize-height" min="1" step="1">
+                                    <span>px</span>
+                                </div>
+                            </div>
+                            <div class="resize-options" style="margin-top: 0.5rem;">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" id="resize-keep-ratio" checked
+                                        style="width: 16px; height: 16px;">
+                                    縦横比を保持する
+                                </label>
+                            </div>
+                        </div>
+                        <button id="resize-btn" class="primary-btn resize-execute-btn" style="margin-top: 0.5rem;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="4 14 10 14 10 20"></polyline>
+                                <polyline points="20 10 14 10 14 4"></polyline>
+                                <line x1="14" y1="10" x2="21" y2="3"></line>
+                                <line x1="3" y1="21" x2="10" y2="14"></line>
+                            </svg>
+                            リサイズ実行
+                        </button>
+                    </div>
                 </div>
                 <div id="no-selection" class="no-selection">
                     <p>Select an image to view details</p>

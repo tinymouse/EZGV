@@ -686,6 +686,59 @@ ipcMain.handle('resize-image', async (event, { filePath, width, height }) => {
     }
 });
 
+ipcMain.handle('select-watermark-file', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'ウォーターマーク画像を選択',
+        properties: ['openFile'],
+        filters: [
+            { name: '画像ファイル', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] }
+        ]
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+    }
+    return null;
+});
+
+ipcMain.handle('get-watermark-settings', async () => {
+    const settings = loadSettings();
+    return {
+        path: settings.watermarkPath || '',
+        opacity: settings.watermarkOpacity !== undefined ? settings.watermarkOpacity : 50
+    };
+});
+
+ipcMain.handle('save-watermark-settings', async (event, { path, opacity }) => {
+    saveSettings({ watermarkPath: path, watermarkOpacity: opacity });
+    return { success: true };
+});
+
+ipcMain.handle('save-watermarked-image', async (event, { filePath, imageDataUrl }) => {
+    try {
+        const dir = path.dirname(filePath);
+        const originalBase = path.basename(filePath);
+        const ext = path.extname(filePath);
+        const nameWithoutExt = path.basename(filePath, ext);
+
+        const newFileName = `${nameWithoutExt}_marked${ext}`;
+        const newPath = path.join(dir, newFileName);
+
+        const base64Data = imageDataUrl.replace(/^data:image\/\w+;base64,/, "");
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        fs.writeFileSync(newPath, buffer);
+
+        const newLabelPath = getLabelFilePath(newPath);
+        const lines = [newFileName, `PREV_NAME: ${originalBase}`];
+        fs.writeFileSync(newLabelPath, lines.join('\n'), 'utf-8');
+
+        return { success: true, newPath };
+    } catch (e) {
+        console.error('Watermark save error:', e);
+        return { success: false, error: e.message };
+    }
+});
+
 ipcMain.handle('move-file', async (event, { srcPath, destDir }) => {
     try {
         if (!fs.existsSync(destDir)) {

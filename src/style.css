@@ -1169,3 +1169,54 @@ main {
     width: 100%;
     justify-content: center;
 }
+
+/* Watermark Section */
+.watermark-section {
+    margin-top: 1.2rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.watermark-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+.watermark-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.watermark-row span {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.file-name-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+}
+
+.watermark-row input[type="number"] {
+    background: white;
+    color: #0f172a;
+    border: none;
+    font-size: 0.95rem;
+    border-radius: 4px;
+    padding: 0.1rem 0.3rem;
+}
+
+.watermark-execute-btn {
+    width: 100%;
+    justify-content: center;
+}

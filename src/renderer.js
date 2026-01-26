@@ -68,7 +68,15 @@ const resizeHeightInput = document.getElementById('resize-height');
 const resizeKeepRatioCheckbox = document.getElementById('resize-keep-ratio');
 const resizeBtn = document.getElementById('resize-btn');
 
+const watermarkOpacityInput = document.getElementById('watermark-opacity');
+const watermarkFilenameSpan = document.getElementById('watermark-filename');
+const selectWatermarkBtn = document.getElementById('select-watermark-btn');
+const watermarkBtn = document.getElementById('watermark-btn');
+
 const thumbnailSizeSelect = document.getElementById('thumbnail-size-select');
+
+// State for watermark
+let currentWatermarkPath = '';
 
 async function loadMasterLabels() {
     masterLabels = await window.electronAPI.getMasterLabels();
@@ -101,6 +109,19 @@ async function loadMasterLabels() {
         currentSort = sortSettings.type || 'folder';
         currentOrder = sortSettings.order || 'asc';
         updateSortUI();
+    }
+
+    // Load Watermark Settings
+    const watermarkSettings = await window.electronAPI.getWatermarkSettings();
+    if (watermarkSettings) {
+        currentWatermarkPath = watermarkSettings.path || '';
+        if (watermarkFilenameSpan) {
+            watermarkFilenameSpan.textContent = currentWatermarkPath ? currentWatermarkPath.split(/[\\/]/).pop() : '未指定';
+            watermarkFilenameSpan.title = currentWatermarkPath;
+        }
+        if (watermarkOpacityInput) {
+            watermarkOpacityInput.value = watermarkSettings.opacity;
+        }
     }
 
     // Load Rename Settings
@@ -1441,6 +1462,128 @@ lightbox.addEventListener('click', (e) => {
         lightbox.classList.add('hidden');
     }
 });
+
+// Watermark Logic
+if (selectWatermarkBtn) {
+    selectWatermarkBtn.addEventListener('click', async () => {
+        const path = await window.electronAPI.selectWatermarkFile();
+        if (path) {
+            currentWatermarkPath = path;
+            watermarkFilenameSpan.textContent = path.split(/[\\/]/).pop();
+            watermarkFilenameSpan.title = path;
+            await window.electronAPI.saveWatermarkSettings({
+                path: currentWatermarkPath,
+                opacity: parseInt(watermarkOpacityInput.value)
+            });
+        }
+    });
+}
+
+if (watermarkOpacityInput) {
+    watermarkOpacityInput.addEventListener('change', async () => {
+        await window.electronAPI.saveWatermarkSettings({
+            path: currentWatermarkPath,
+            opacity: parseInt(watermarkOpacityInput.value)
+        });
+    });
+}
+
+watermarkBtn.addEventListener('click', async () => {
+    const imagesArray = Array.from(selectedImages);
+    if (imagesArray.length === 0) return;
+    if (!currentWatermarkPath) {
+        alert('ウォーターマーク画像を指定してください。');
+        return;
+    }
+
+    if (!confirm(`${imagesArray.length}件のファイルにウォーターマークを合成しますか？`)) return;
+
+    watermarkBtn.disabled = true;
+    const originalText = watermarkBtn.innerHTML;
+    watermarkBtn.innerHTML = '処理中...';
+
+    try {
+        const opacity = parseInt(watermarkOpacityInput.value) / 100;
+        let totalCreated = 0;
+
+        for (const filePath of imagesArray) {
+            const res = await applyWatermark(filePath, currentWatermarkPath, opacity);
+            if (res.success) {
+                totalCreated++;
+            } else {
+                console.error(`Watermark failed for ${filePath}:`, res.error);
+                alert(`${filePath.split(/[\\/]/).pop()} の合成に失敗しました: ${res.error}`);
+            }
+        }
+
+        if (totalCreated > 0) {
+            alert(`${totalCreated}枚の画像を生成しました。`);
+            const pathTxt = folderPathDisplay.textContent;
+            if (pathTxt && pathTxt !== '未選択') {
+                loadImages(pathTxt);
+            }
+        }
+    } catch (e) {
+        console.error(e);
+        alert('エラーが発生しました');
+    } finally {
+        watermarkBtn.disabled = false;
+        watermarkBtn.innerHTML = originalText;
+    }
+});
+
+async function applyWatermark(basePath, watermarkPath, opacity) {
+    return new Promise((resolve) => {
+        const baseImg = new Image();
+        const markImg = new Image();
+
+        // Use local-image protocol
+        baseImg.src = `local-image://load?path=${encodeURIComponent(basePath)}`;
+        markImg.src = `local-image://load?path=${encodeURIComponent(watermarkPath)}`;
+
+        let loadedCount = 0;
+        const OnLoad = async () => {
+            loadedCount++;
+            if (loadedCount === 2) {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = baseImg.naturalWidth;
+                    canvas.height = baseImg.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+
+                    // Draw base
+                    ctx.drawImage(baseImg, 0, 0);
+
+                    // Draw watermark (centered and scaled relative to base if needed? 
+                    // Let's keep it simple: draw centering it, but don't let it exceed base size)
+                    let mw = markImg.naturalWidth;
+                    let mh = markImg.naturalHeight;
+
+                    // Scale down watermark if it's larger than base
+                    const scale = Math.min(1, canvas.width / mw, canvas.height / mh);
+                    mw *= scale;
+                    mh *= scale;
+
+                    ctx.globalAlpha = opacity;
+                    ctx.drawImage(markImg, (canvas.width - mw) / 2, (canvas.height - mh) / 2, mw, mh);
+
+                    const format = basePath.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+                    const dataUrl = canvas.toDataURL(format, 0.95);
+
+                    const res = await window.electronAPI.saveWatermarkedImage(basePath, dataUrl);
+                    resolve(res);
+                } catch (e) {
+                    resolve({ success: false, error: e.message });
+                }
+            }
+        };
+
+        baseImg.onload = OnLoad;
+        markImg.onload = OnLoad;
+        baseImg.onerror = () => resolve({ success: false, error: 'ベース画像の読み込みに失敗しました' });
+        markImg.onerror = () => resolve({ success: false, error: 'ウォーターマーク画像の読み込みに失敗しました' });
+    });
+}
 
 // Initialize
 window.addEventListener('DOMContentLoaded', async () => {

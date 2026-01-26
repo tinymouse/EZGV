@@ -33,5 +33,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getSplitSettings: () => ipcRenderer.invoke('get-split-settings'),
     saveSplitSettings: (settings) => ipcRenderer.invoke('save-split-settings', settings),
     resizeImage: (filePath, width, height) => ipcRenderer.invoke('resize-image', { filePath, width, height }),
+    selectWatermarkFile: () => ipcRenderer.invoke('select-watermark-file'),
+    getWatermarkSettings: () => ipcRenderer.invoke('get-watermark-settings'),
+    saveWatermarkSettings: (settings) => ipcRenderer.invoke('save-watermark-settings', settings),
+    saveWatermarkedImage: (filePath, imageDataUrl) => ipcRenderer.invoke('save-watermarked-image', { filePath, imageDataUrl }),
     autoLabelImage: (filePath, masterLabels) => ipcRenderer.invoke('auto-label-image', { filePath, masterLabels })
 });

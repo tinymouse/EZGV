@@ -315,6 +315,30 @@
                             リサイズ実行
                         </button>
                     </div>
+
+                    <div class="detail-item watermark-section">
+                        <label>ウォーターマーク追加</label>
+                        <div class="watermark-controls">
+                            <div class="watermark-row">
+                                <button id="select-watermark-btn" class="secondary-btn">画像指定</button>
+                                <span id="watermark-filename" class="file-name-text">未指定</span>
+                            </div>
+                            <div class="watermark-row" style="margin-top: 0.5rem;">
+                                <span>透過率:</span>
+                                <input type="number" id="watermark-opacity" min="0" max="100" value="50" step="1"
+                                    style="width: 60px;">
+                                <span>%</span>
+                            </div>
+                        </div>
+                        <button id="watermark-btn" class="primary-btn watermark-execute-btn"
+                            style="margin-top: 0.5rem;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            ウォーターマークを追加
+                        </button>
+                    </div>
                 </div>
                 <div id="no-selection" class="no-selection">
                     <p>Select an image to view details</p>

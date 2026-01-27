@@ -704,12 +704,19 @@ ipcMain.handle('get-watermark-settings', async () => {
     const settings = loadSettings();
     return {
         path: settings.watermarkPath || '',
-        opacity: settings.watermarkOpacity !== undefined ? settings.watermarkOpacity : 50
+        opacity: settings.watermarkOpacity !== undefined ? settings.watermarkOpacity : 50,
+        position: settings.watermarkPosition || 'bottom-right',
+        size: settings.watermarkSize || '0.5'
     };
 });
 
-ipcMain.handle('save-watermark-settings', async (event, { path, opacity }) => {
-    saveSettings({ watermarkPath: path, watermarkOpacity: opacity });
+ipcMain.handle('save-watermark-settings', async (event, { path, opacity, position, size }) => {
+    saveSettings({
+        watermarkPath: path,
+        watermarkOpacity: opacity,
+        watermarkPosition: position,
+        watermarkSize: size
+    });
     return { success: true };
 });
 

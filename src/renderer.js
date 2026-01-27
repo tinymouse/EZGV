@@ -69,6 +69,8 @@ const resizeKeepRatioCheckbox = document.getElementById('resize-keep-ratio');
 const resizeBtn = document.getElementById('resize-btn');
 
 const watermarkOpacityInput = document.getElementById('watermark-opacity');
+const watermarkPositionSelect = document.getElementById('watermark-position');
+const watermarkSizeSelect = document.getElementById('watermark-size');
 const watermarkFilenameSpan = document.getElementById('watermark-filename');
 const selectWatermarkBtn = document.getElementById('select-watermark-btn');
 const watermarkBtn = document.getElementById('watermark-btn');
@@ -119,9 +121,9 @@ async function loadMasterLabels() {
             watermarkFilenameSpan.textContent = currentWatermarkPath ? currentWatermarkPath.split(/[\\/]/).pop() : '未指定';
             watermarkFilenameSpan.title = currentWatermarkPath;
         }
-        if (watermarkOpacityInput) {
-            watermarkOpacityInput.value = watermarkSettings.opacity;
-        }
+        if (watermarkOpacityInput) watermarkOpacityInput.value = watermarkSettings.opacity;
+        if (watermarkPositionSelect) watermarkPositionSelect.value = watermarkSettings.position || 'bottom-right';
+        if (watermarkSizeSelect) watermarkSizeSelect.value = watermarkSettings.size || '0.5';
     }
 
     // Load Rename Settings
@@ -1473,7 +1475,9 @@ if (selectWatermarkBtn) {
             watermarkFilenameSpan.title = path;
             await window.electronAPI.saveWatermarkSettings({
                 path: currentWatermarkPath,
-                opacity: parseInt(watermarkOpacityInput.value)
+                opacity: parseInt(watermarkOpacityInput.value),
+                position: watermarkPositionSelect.value,
+                size: watermarkSizeSelect.value
             });
         }
     });
@@ -1483,7 +1487,31 @@ if (watermarkOpacityInput) {
     watermarkOpacityInput.addEventListener('change', async () => {
         await window.electronAPI.saveWatermarkSettings({
             path: currentWatermarkPath,
-            opacity: parseInt(watermarkOpacityInput.value)
+            opacity: parseInt(watermarkOpacityInput.value),
+            position: watermarkPositionSelect.value,
+            size: watermarkSizeSelect.value
+        });
+    });
+}
+
+if (watermarkPositionSelect) {
+    watermarkPositionSelect.addEventListener('change', async () => {
+        await window.electronAPI.saveWatermarkSettings({
+            path: currentWatermarkPath,
+            opacity: parseInt(watermarkOpacityInput.value),
+            position: watermarkPositionSelect.value,
+            size: watermarkSizeSelect.value
+        });
+    });
+}
+
+if (watermarkSizeSelect) {
+    watermarkSizeSelect.addEventListener('change', async () => {
+        await window.electronAPI.saveWatermarkSettings({
+            path: currentWatermarkPath,
+            opacity: parseInt(watermarkOpacityInput.value),
+            position: watermarkPositionSelect.value,
+            size: watermarkSizeSelect.value
         });
     });
 }
@@ -1504,10 +1532,12 @@ watermarkBtn.addEventListener('click', async () => {
 
     try {
         const opacity = parseInt(watermarkOpacityInput.value) / 100;
+        const position = watermarkPositionSelect.value;
+        const sizeFactor = parseFloat(watermarkSizeSelect.value);
         let totalCreated = 0;
 
         for (const filePath of imagesArray) {
-            const res = await applyWatermark(filePath, currentWatermarkPath, opacity);
+            const res = await applyWatermark(filePath, currentWatermarkPath, opacity, position, sizeFactor);
             if (res.success) {
                 totalCreated++;
             } else {
@@ -1532,7 +1562,7 @@ watermarkBtn.addEventListener('click', async () => {
     }
 });
 
-async function applyWatermark(basePath, watermarkPath, opacity) {
+async function applyWatermark(basePath, watermarkPath, opacity, position, sizeFactor) {
     return new Promise((resolve) => {
         const baseImg = new Image();
         const markImg = new Image();
@@ -1554,18 +1584,65 @@ async function applyWatermark(basePath, watermarkPath, opacity) {
                     // Draw base
                     ctx.drawImage(baseImg, 0, 0);
 
-                    // Draw watermark (centered and scaled relative to base if needed? 
-                    // Let's keep it simple: draw centering it, but don't let it exceed base size)
+                    // Scale watermark relative to base width
                     let mw = markImg.naturalWidth;
                     let mh = markImg.naturalHeight;
+                    const bw = canvas.width;
+                    const bh = canvas.height;
 
-                    // Scale down watermark if it's larger than base
-                    const scale = Math.min(1, canvas.width / mw, canvas.height / mh);
+                    // Use image width as reference for "size"
+                    const referenceDim = bw;
+                    const scale = (referenceDim * sizeFactor) / mw;
                     mw *= scale;
                     mh *= scale;
 
+                    // Calculate position
+                    let x = 0;
+                    let y = 0;
+                    const padding = referenceDim * 0.05; // 5% padding based on width
+
+                    switch (position) {
+                        case 'top-left':
+                            x = padding;
+                            y = padding;
+                            break;
+                        case 'top-center':
+                            x = (bw - mw) / 2;
+                            y = padding;
+                            break;
+                        case 'top-right':
+                            x = bw - mw - padding;
+                            y = padding;
+                            break;
+                        case 'middle-left':
+                            x = padding;
+                            y = (bh - mh) / 2;
+                            break;
+                        case 'center':
+                            x = (bw - mw) / 2;
+                            y = (bh - mh) / 2;
+                            break;
+                        case 'middle-right':
+                            x = bw - mw - padding;
+                            y = (bh - mh) / 2;
+                            break;
+                        case 'bottom-left':
+                            x = padding;
+                            y = bh - mh - padding;
+                            break;
+                        case 'bottom-center':
+                            x = (bw - mw) / 2;
+                            y = bh - mh - padding;
+                            break;
+                        case 'bottom-right':
+                        default:
+                            x = bw - mw - padding;
+                            y = bh - mh - padding;
+                            break;
+                    }
+
                     ctx.globalAlpha = opacity;
-                    ctx.drawImage(markImg, (canvas.width - mw) / 2, (canvas.height - mh) / 2, mw, mh);
+                    ctx.drawImage(markImg, x, y, mw, mh);
 
                     const format = basePath.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
                     const dataUrl = canvas.toDataURL(format, 0.95);

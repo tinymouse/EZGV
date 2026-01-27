@@ -1207,7 +1207,8 @@ main {
     max-width: 150px;
 }
 
-.watermark-row input[type="number"] {
+.watermark-row input[type="number"],
+.watermark-row select {
     background: white;
     color: #0f172a;
     border: none;

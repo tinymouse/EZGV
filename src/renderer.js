@@ -156,7 +156,22 @@ async function loadMasterLabels() {
     }
 
     updateRenameUIState();
+    await loadPanelStates();
     renderDynamicLabels();
+}
+
+async function loadPanelStates() {
+    const states = await window.electronAPI.getPanelStates();
+    Object.keys(states).forEach(id => {
+        const panel = document.getElementById(id);
+        if (panel) {
+            if (states[id] === 'collapsed') {
+                panel.classList.add('collapsed');
+            } else {
+                panel.classList.remove('collapsed');
+            }
+        }
+    });
 }
 
 function updateRenameUIState() {
@@ -1845,4 +1860,20 @@ labelModal.addEventListener('click', (e) => {
     if (e.target === labelModal) {
         closeModalBtn.click();
     }
+});
+// Collapsible Logic
+document.querySelectorAll('.collapsible-header').forEach(header => {
+    header.addEventListener('click', async () => {
+        const panel = header.closest('.collapsible-section');
+        if (panel) {
+            panel.classList.toggle('collapsed');
+
+            // Save states
+            const states = {};
+            document.querySelectorAll('.collapsible-section').forEach(p => {
+                states[p.id] = p.classList.contains('collapsed') ? 'collapsed' : 'expanded';
+            });
+            await window.electronAPI.savePanelStates(states);
+        }
+    });
 });

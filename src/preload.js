@@ -37,5 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getWatermarkSettings: () => ipcRenderer.invoke('get-watermark-settings'),
     saveWatermarkSettings: (settings) => ipcRenderer.invoke('save-watermark-settings', settings),
     saveWatermarkedImage: (filePath, imageDataUrl) => ipcRenderer.invoke('save-watermarked-image', { filePath, imageDataUrl }),
+    getPanelStates: () => ipcRenderer.invoke('get-panel-states'),
+    savePanelStates: (states) => ipcRenderer.invoke('save-panel-states', states),
     autoLabelImage: (filePath, masterLabels) => ipcRenderer.invoke('auto-label-image', { filePath, masterLabels })
 });

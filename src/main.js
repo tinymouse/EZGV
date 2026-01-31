@@ -821,3 +821,13 @@ ipcMain.handle('get-images', async (event, folderPath) => {
 
     return images;
 });
+
+ipcMain.handle('get-panel-states', async () => {
+    const settings = loadSettings();
+    return settings.panelStates || {};
+});
+
+ipcMain.handle('save-panel-states', async (event, states) => {
+    saveSettings({ panelStates: states });
+    return { success: true };
+});

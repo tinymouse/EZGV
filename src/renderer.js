@@ -1370,10 +1370,16 @@ document.addEventListener('keydown', async (e) => {
     if (!lightbox.classList.contains('hidden')) {
         if (e.key === 'Escape') {
             lightbox.classList.add('hidden');
-        } else if (e.key === 'ArrowRight') {
+        } else if (e.key === 'ArrowRight' || e.key === 'Right') {
+            e.preventDefault();
             navigateLightbox('next');
-        } else if (e.key === 'ArrowLeft') {
+        } else if (e.key === 'ArrowLeft' || e.key === 'Left') {
+            e.preventDefault();
             navigateLightbox('prev');
+        } else if (e.key === 'Delete') {
+            if (lightboxImages[currentLightboxIndex]) {
+                deleteImage(lightboxImages[currentLightboxIndex]);
+            }
         }
         return;
     }

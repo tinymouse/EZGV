@@ -250,6 +250,26 @@ main {
     transition: all 0.2s;
 }
 
+.icon-only-btn {
+    padding: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    opacity: 0.7;
+}
+
+.icon-only-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.selection-controls .filter-label {
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+
 .sort-btn.active {
     opacity: 1;
     background: rgba(56, 189, 248, 0.15) !important;

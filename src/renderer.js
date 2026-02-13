@@ -76,6 +76,8 @@ const selectWatermarkBtn = document.getElementById('select-watermark-btn');
 const watermarkBtn = document.getElementById('watermark-btn');
 
 const thumbnailSizeSelect = document.getElementById('thumbnail-size-select');
+const refreshBtn = document.getElementById('refresh-btn');
+const selectAllCheckbox = document.getElementById('select-all-checkbox');
 
 // State for watermark
 let currentWatermarkPath = '';
@@ -382,6 +384,7 @@ async function updateDetailsPane() {
     if (count === 0) {
         noSelection.classList.remove('hidden');
         detailsContent.classList.add('hidden');
+        updateSelectAllCheckboxState();
         return;
     }
 
@@ -468,6 +471,27 @@ async function updateDetailsPane() {
     }
 
     updateRenamePreview();
+    updateSelectAllCheckboxState();
+}
+
+function updateSelectAllCheckboxState() {
+    if (!selectAllCheckbox) return;
+    const totalVisible = allImageCards.length;
+    const selectedVisible = allImageCards.filter(c => selectedImages.has(c.path)).length;
+
+    if (totalVisible === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedVisible === totalVisible) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedVisible === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    }
 }
 
 function generateNewName(index, total, imagePath, labels) {
@@ -940,6 +964,47 @@ document.querySelectorAll('.sort-btn').forEach(btn => {
         applyFilters(true);
     });
 });
+
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+        applyFilters(true);
+    });
+}
+
+if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', () => {
+        const totalVisible = allImageCards.length;
+        const selectedVisible = allImageCards.filter(c => selectedImages.has(c.path)).length;
+        const wasIndeterminate = (selectedVisible > 0 && selectedVisible < totalVisible);
+
+        if (wasIndeterminate) {
+            // If it was "-", clicking it should uncheck all
+            selectAllCheckbox.checked = false;
+            allImageCards.forEach(c => {
+                selectedImages.delete(c.path);
+                c.element.classList.remove('selected');
+            });
+        } else {
+            // Standard toggle
+            const isChecked = selectAllCheckbox.checked;
+            if (isChecked) {
+                // Select all visible
+                allImageCards.forEach(c => {
+                    selectedImages.add(c.path);
+                    c.element.classList.add('selected');
+                });
+            } else {
+                // Deselect all visible
+                allImageCards.forEach(c => {
+                    selectedImages.delete(c.path);
+                    c.element.classList.remove('selected');
+                });
+            }
+        }
+        updateDetailsPane();
+        updateSelectAllCheckboxState(); // Ensure visual state is synced
+    });
+}
 
 
 function handleSelection(card, index, imagePath, event) {

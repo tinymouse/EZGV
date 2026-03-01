@@ -1087,62 +1087,85 @@ async function renderGrid(data, keepSelection = false) {
                 <h2>画像が見つかりませんでした</h2>
                 <p>条件に一致する画像がありません</p>
             </div>`;
+        await updateDetailsPane();
     } else {
-        data.forEach((imgObj, index) => {
-            const imagePath = imgObj.path;
-            const labels = imgObj.labels || [];
+        await new Promise(resolve => {
+            let i = 0;
+            const chunkSize = 100; // Process 100 images per frame
 
-            const fileName = imagePath.split(/[\\/]/).pop();
-            const card = document.createElement('div');
-            card.className = 'image-card';
-            card.draggable = (currentSort === 'manual'); // Only draggable in manual mode
+            function renderChunk() {
+                const fragment = document.createDocumentFragment();
+                const end = Math.min(i + chunkSize, data.length);
 
-            if (selectedImages.has(imagePath)) {
-                card.classList.add('selected');
-                // Update lastSelectedCardIndex if it's the only one selected or logically needs restoration
+                for (; i < end; i++) {
+                    const imgObj = data[i];
+                    const index = i;
+                    const imagePath = imgObj.path;
+                    const labels = imgObj.labels || [];
+
+                    const fileName = imagePath.split(/[\\/]/).pop();
+                    const card = document.createElement('div');
+                    card.className = 'image-card';
+                    card.draggable = (currentSort === 'manual'); // Only draggable in manual mode
+
+                    if (selectedImages.has(imagePath)) {
+                        card.classList.add('selected');
+                        // Update lastSelectedCardIndex if it's the only one selected or logically needs restoration
+                    }
+                    card.setAttribute('data-name', fileName);
+                    card.setAttribute('data-path', imagePath);
+                    card.setAttribute('data-index', index);
+
+                    const checkbox = document.createElement('div');
+                    checkbox.className = 'checkbox-overlay';
+                    card.appendChild(checkbox);
+
+                    const img = document.createElement('img');
+                    const encodedPath = encodeURIComponent(imagePath);
+                    img.src = `local-image://load?path=${encodedPath}`;
+                    img.loading = 'lazy';
+
+                    card.appendChild(img);
+
+                    // Store reference
+                    allImageCards.push({ element: card, path: imagePath, labels: labels });
+
+                    // Click to select
+                    card.addEventListener('click', (e) => {
+                        handleSelection(card, index, imagePath, e);
+                    });
+
+                    // Double click to view
+                    card.addEventListener('dblclick', () => {
+                        openLightbox([imagePath], 0, false);
+                    });
+
+                    // Drag and Drop listeners
+                    if (currentSort === 'manual') {
+                        card.addEventListener('dragstart', handleDragStart);
+                        card.addEventListener('dragover', handleDragOver);
+                        card.addEventListener('dragleave', handleDragLeave);
+                        card.addEventListener('drop', handleDrop);
+                    }
+
+                    fragment.appendChild(card);
+                }
+
+                imageGrid.appendChild(fragment);
+
+                if (i < data.length) {
+                    requestAnimationFrame(renderChunk);
+                } else {
+                    resolve();
+                }
             }
-            card.setAttribute('data-name', fileName);
-            card.setAttribute('data-path', imagePath);
-            card.setAttribute('data-index', index);
 
-            const checkbox = document.createElement('div');
-            checkbox.className = 'checkbox-overlay';
-            card.appendChild(checkbox);
-
-            const img = document.createElement('img');
-            const encodedPath = encodeURIComponent(imagePath);
-            img.src = `local-image://load?path=${encodedPath}`;
-            img.loading = 'lazy';
-
-            card.appendChild(img);
-
-            // Store reference
-            allImageCards.push({ element: card, path: imagePath, labels: labels });
-
-            // Click to select
-            card.addEventListener('click', (e) => {
-                handleSelection(card, index, imagePath, e);
-            });
-
-            // Double click to view
-            card.addEventListener('dblclick', () => {
-                openLightbox([imagePath], 0, false);
-            });
-
-            // Drag and Drop listeners
-            if (currentSort === 'manual') {
-                card.addEventListener('dragstart', handleDragStart);
-                card.addEventListener('dragover', handleDragOver);
-                card.addEventListener('dragleave', handleDragLeave);
-                card.addEventListener('drop', handleDrop);
-            }
-
-            imageGrid.appendChild(card);
+            requestAnimationFrame(renderChunk);
         });
-    }
 
-    // Refresh the details pane to reflect the new grid state (and restore selection check states)
-    await updateDetailsPane();
+        // Refresh the details pane to reflect the new grid state (and restore selection check states)
+        await updateDetailsPane();
+    }
 }
 
 let draggedItemPath = null;

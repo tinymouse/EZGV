@@ -160,8 +160,8 @@ app.on('ready', function () {
         try {
             const urlObj = new URL(request.url);
             const filePath = decodeURIComponent(urlObj.searchParams.get('path'));
-            const data = fs.readFileSync(filePath);
-            return new Response(data);
+            // Use net.fetch to stream the file, avoiding blocking fs.readFileSync and high memory usage
+            return net.fetch(url.pathToFileURL(filePath).toString());
         } catch (error) {
             console.error('Protocol Error:', error);
             return new Response('Error loading image', { status: 500 });

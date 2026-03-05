@@ -1351,6 +1351,10 @@ async function moveImage(path) {
 }
 
 function updateLightboxView() {
+    // Release image memory
+    lightboxContent.querySelectorAll('.lightbox-img').forEach(img => {
+        img.src = '';
+    });
     // Clear content
     lightboxContent.innerHTML = '';
 

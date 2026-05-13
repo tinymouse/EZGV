@@ -425,6 +425,55 @@
                             </button>
                         </div>
                     </div>
+
+                    <div id="panel-ftp" class="detail-item ftp-section collapsible-section">
+                        <div class="collapsible-header">
+                            <label>FTP アップロード</label>
+                            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="ftp-controls">
+                                <div class="ftp-row">
+                                    <span>FTP サーバ:</span>
+                                    <input type="text" id="ftp-host" placeholder="ftp.example.com">
+                                </div>
+                                <div class="ftp-row">
+                                    <span>ユーザ名:</span>
+                                    <input type="text" id="ftp-user" placeholder="username">
+                                </div>
+                                <div class="ftp-row">
+                                    <span>パスワード:</span>
+                                    <input type="password" id="ftp-pass" placeholder="password">
+                                </div>
+                                <div class="ftp-row">
+                                    <span>パス:</span>
+                                    <input type="text" id="ftp-path" placeholder="/public_html/images">
+                                </div>
+                                <div class="ftp-row"
+                                    style="margin-top: 0.5rem; flex-direction: column; align-items: flex-start;">
+                                    <span
+                                        style="font-size: 0.8rem; color: var(--text-secondary);">同名のファイルがアップロード済のとき:</span>
+                                    <select id="ftp-conflict-action" style="width: 100%; margin-top: 4px;">
+                                        <option value="overwrite">上書する</option>
+                                        <option value="confirm">確認する</option>
+                                        <option value="skip">しない</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="ftp-upload-btn" class="primary-btn ftp-execute-btn" style="margin-top: 0.5rem;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                アップロード
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div id="no-selection" class="no-selection">
                     <p>Select an image to view details</p>

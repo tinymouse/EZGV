@@ -39,5 +39,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveWatermarkedImage: (filePath, imageDataUrl) => ipcRenderer.invoke('save-watermarked-image', { filePath, imageDataUrl }),
     getPanelStates: () => ipcRenderer.invoke('get-panel-states'),
     savePanelStates: (states) => ipcRenderer.invoke('save-panel-states', states),
-    autoLabelImage: (filePath, masterLabels) => ipcRenderer.invoke('auto-label-image', { filePath, masterLabels })
+    autoLabelImage: (filePath, masterLabels) => ipcRenderer.invoke('auto-label-image', { filePath, masterLabels }),
+    getFtpSettings: () => ipcRenderer.invoke('get-ftp-settings'),
+    saveFtpSettings: (settings) => ipcRenderer.invoke('save-ftp-settings', settings),
+    uploadToFtp: (filePath, ftpSettings) => ipcRenderer.invoke('upload-to-ftp', { filePath, ftpSettings })
 });

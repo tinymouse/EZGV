@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const ftp = require('basic-ftp');
 
 ipcMain.handle('delete-file', async (event, filePath) => {
     try {
@@ -840,4 +841,72 @@ ipcMain.handle('get-panel-states', async () => {
 ipcMain.handle('save-panel-states', async (event, states) => {
     saveSettings({ panelStates: states });
     return { success: true };
+});
+
+ipcMain.handle('get-ftp-settings', () => {
+    const settings = loadSettings();
+    return settings.ftpSettings || {
+        host: '',
+        user: '',
+        pass: '',
+        path: '',
+        conflictAction: 'overwrite'
+    };
+});
+
+ipcMain.handle('save-ftp-settings', (event, ftpSettings) => {
+    saveSettings({ ftpSettings });
+    return { success: true };
+});
+
+ipcMain.handle('upload-to-ftp', async (event, { filePath, ftpSettings }) => {
+    const client = new ftp.Client();
+    try {
+        await client.access({
+            host: ftpSettings.host ? ftpSettings.host.trim() : '',
+            user: ftpSettings.user ? ftpSettings.user.trim() : '',
+            password: ftpSettings.pass ? ftpSettings.pass.trim() : '',
+            secure: false
+        });
+
+        const remoteDir = ftpSettings.path || "/";
+        await client.ensureDir(remoteDir);
+
+        const fileName = path.basename(filePath);
+        let remoteFilePath = `${remoteDir}/${fileName}`.replace(/\/+/g, '/');
+
+        // Check if file exists when conflictAction is 'skip' or 'confirm'
+        if (ftpSettings.conflictAction !== 'overwrite') {
+            const list = await client.list(remoteDir);
+            const exists = list.some(item => item.name === fileName);
+            if (exists) {
+                if (ftpSettings.conflictAction === 'skip') {
+                    client.close();
+                    return { success: true, skipped: true };
+                } else if (ftpSettings.conflictAction === 'confirm') {
+                    client.close();
+                    return { success: true, needsConfirmation: true };
+                }
+            }
+        }
+
+        // Upload image
+        await client.uploadFrom(filePath, remoteFilePath);
+
+        // Upload label file if exists
+        const labelPath = getLabelFilePath(filePath);
+        if (fs.existsSync(labelPath)) {
+            const labelFileName = path.basename(labelPath);
+            const remoteLabelPath = `${remoteDir}/${labelFileName}`.replace(/\/+/g, '/');
+            await client.uploadFrom(labelPath, remoteLabelPath);
+        }
+
+        client.close();
+        return { success: true };
+
+    } catch (err) {
+        client.close();
+        console.error("FTP Upload Error:", err);
+        return { success: false, error: err.message };
+    }
 });

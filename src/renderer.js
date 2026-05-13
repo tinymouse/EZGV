@@ -75,6 +75,13 @@ const watermarkFilenameSpan = document.getElementById('watermark-filename');
 const selectWatermarkBtn = document.getElementById('select-watermark-btn');
 const watermarkBtn = document.getElementById('watermark-btn');
 
+const ftpHostInput = document.getElementById('ftp-host');
+const ftpUserInput = document.getElementById('ftp-user');
+const ftpPassInput = document.getElementById('ftp-pass');
+const ftpPathInput = document.getElementById('ftp-path');
+const ftpConflictActionSelect = document.getElementById('ftp-conflict-action');
+const ftpBtn = document.getElementById('ftp-upload-btn');
+
 const thumbnailSizeSelect = document.getElementById('thumbnail-size-select');
 const refreshBtn = document.getElementById('refresh-btn');
 const selectAllCheckbox = document.getElementById('select-all-checkbox');
@@ -126,6 +133,16 @@ async function loadMasterLabels() {
         if (watermarkOpacityInput) watermarkOpacityInput.value = watermarkSettings.opacity;
         if (watermarkPositionSelect) watermarkPositionSelect.value = watermarkSettings.position || 'bottom-right';
         if (watermarkSizeSelect) watermarkSizeSelect.value = watermarkSettings.size || '0.5';
+    }
+
+    // Load FTP Settings
+    const ftpSettings = await window.electronAPI.getFtpSettings();
+    if (ftpSettings) {
+        if (ftpHostInput) ftpHostInput.value = ftpSettings.host || '';
+        if (ftpUserInput) ftpUserInput.value = ftpSettings.user || '';
+        if (ftpPassInput) ftpPassInput.value = ftpSettings.pass || '';
+        if (ftpPathInput) ftpPathInput.value = ftpSettings.path || '';
+        if (ftpConflictActionSelect) ftpConflictActionSelect.value = ftpSettings.conflictAction || 'overwrite';
     }
 
     // Load Rename Settings
@@ -610,6 +627,24 @@ function updateRenamePreview() {
     }
 });
 
+// FTP Listeners
+[ftpHostInput, ftpUserInput, ftpPassInput, ftpPathInput, ftpConflictActionSelect].forEach(el => {
+    if (el) {
+        const handler = () => {
+            const settings = {
+                host: ftpHostInput.value.trim(),
+                user: ftpUserInput.value.trim(),
+                pass: ftpPassInput.value.trim(),
+                path: ftpPathInput.value.trim(),
+                conflictAction: ftpConflictActionSelect.value
+            };
+            window.electronAPI.saveFtpSettings(settings);
+        };
+        el.addEventListener('change', handler);
+        if (el !== ftpConflictActionSelect) el.addEventListener('input', handler);
+    }
+});
+
 function updateThumbnailSize(size) {
     let px = 180;
     if (size === 'medium') px = 270;
@@ -737,6 +772,71 @@ splitBtn.addEventListener('click', async () => {
         splitBtn.innerHTML = originalText;
     }
 });
+
+if (ftpBtn) {
+    ftpBtn.addEventListener('click', async () => {
+        const imagesArray = Array.from(selectedImages);
+        if (imagesArray.length === 0) {
+            alert('ファイルが選択されていません。');
+            return;
+        }
+
+        const settings = {
+            host: ftpHostInput.value.trim(),
+            user: ftpUserInput.value.trim(),
+            pass: ftpPassInput.value.trim(),
+            path: ftpPathInput.value.trim(),
+            conflictAction: ftpConflictActionSelect.value
+        };
+
+        if (!settings.host || !settings.user || !settings.pass) {
+            alert('FTPのホスト名、ユーザ名、パスワードを入力してください。');
+            return;
+        }
+
+        ftpBtn.disabled = true;
+        const originalText = ftpBtn.innerHTML;
+        ftpBtn.innerHTML = 'アップロード中...';
+
+        try {
+            let successCount = 0;
+            let skipCount = 0;
+            
+            for (const filePath of imagesArray) {
+                const fileName = filePath.split(/[\\/]/).pop();
+                const res = await window.electronAPI.uploadToFtp(filePath, settings);
+                if (res.success) {
+                    if (res.skipped) {
+                        skipCount++;
+                    } else if (res.needsConfirmation) {
+                        if (confirm(`ファイル ${fileName} は既に存在します。上書きしますか？`)) {
+                            // 一時的に overwrite にして再実行
+                            const forceSettings = { ...settings, conflictAction: 'overwrite' };
+                            const res2 = await window.electronAPI.uploadToFtp(filePath, forceSettings);
+                            if (res2.success) successCount++;
+                            else console.error(`FTP Upload failed:`, res2.error);
+                        } else {
+                            skipCount++;
+                        }
+                    } else {
+                        successCount++;
+                    }
+                } else {
+                    console.error(`FTP Upload failed for ${filePath}:`, res.error);
+                    alert(`${fileName} のアップロードに失敗しました: ${res.error}`);
+                }
+            }
+
+            alert(`${successCount}件のアップロードが完了しました。（スキップ: ${skipCount}件）`);
+        } catch (e) {
+            console.error('FTP error:', e);
+            alert('エラーが発生しました');
+        } finally {
+            ftpBtn.disabled = false;
+            ftpBtn.innerHTML = originalText;
+        }
+    });
+}
 
 // Resize Logic
 if (resizeWidthInput && resizeHeightInput) {

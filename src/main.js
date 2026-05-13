@@ -10,7 +10,7 @@ ipcMain.handle('delete-file', async (event, filePath) => {
         await shell.trashItem(filePath);
 
         // Also move the label file if it exists
-        const labelPath = `${filePath}.txt`;
+        const labelPath = `${filePath}.json`;
         if (fs.existsSync(labelPath)) {
             await shell.trashItem(labelPath);
         }
@@ -437,57 +437,65 @@ ipcMain.handle('get-file-details', async (event, filePath) => {
 
 // Label Management
 function getLabelFilePath(imagePath) {
-    // Strategy: image.jpg -> image.jpg.txt to avoid collisions
-    return `${imagePath}.txt`;
+    // Strategy: image.jpg -> image.jpg.json to avoid collisions
+    return `${imagePath}.json`;
 }
 
 // Metadata Management
-// Metadata Management
 function getMetadataForFile(imagePath) {
-    try {
-        const txtPath = getLabelFilePath(imagePath);
-        if (fs.existsSync(txtPath)) {
-            const content = fs.readFileSync(txtPath, 'utf-8');
-            const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l);
-            if (lines.length > 0) {
-                let order = 1000000;
-                let prevName = null;
-                let labels = [];
-                let labelGroups = {}; // Map label -> group
+    let order = 1000000;
+    let prevName = null;
+    let labels = [];
+    let labelGroups = {}; // Map label -> group
 
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i];
-                    if (line.startsWith('ORDER:')) {
-                        order = parseInt(line.replace('ORDER:', '').trim()) || 1000000;
-                    } else if (line.startsWith('PREV_NAME:')) {
-                        prevName = line.replace('PREV_NAME:', '').trim();
-                    } else if (line.includes('[GROUP:')) {
-                        // Check for "LabelName [GROUP: GroupName]" format
-                        const match = line.match(/^(.*)\s\[GROUP:\s*(.*)\]$/);
-                        if (match && match.length === 3) {
-                            const name = match[1].trim();
-                            const group = match[2].trim();
-                            labels.push(name);
-                            labelGroups[name] = group;
-                        } else {
-                            // Fallback if parsing fails or malformed
-                            labels.push(line);
+    try {
+        const jsonPath = getLabelFilePath(imagePath);
+        if (fs.existsSync(jsonPath)) {
+            const content = fs.readFileSync(jsonPath, 'utf-8');
+            const data = JSON.parse(content);
+
+            if (data.dispOrder !== undefined) order = data.dispOrder;
+            if (data.prevName !== undefined) prevName = data.prevName;
+
+            if (Array.isArray(data.labels)) {
+                data.labels.forEach(l => {
+                    if (l.labelName) {
+                        labels.push(l.labelName);
+                        if (l.groupName) {
+                            labelGroups[l.labelName] = l.groupName;
                         }
-                    } else {
-                        labels.push(line);
                     }
-                }
-                return { order, labels, prevName, labelGroups };
+                });
             }
         }
     } catch (e) { }
-    return { order: 1000000, labels: [], prevName: null, labelGroups: {} };
+    return { order, labels, prevName, labelGroups };
+}
+
+function writeMetadataJson(filePath, newFileName, metaUpdates) {
+    const jsonPath = getLabelFilePath(filePath);
+    const jsonData = { fileName: newFileName };
+
+    // metaUpdates: { order, prevName, labels, labelGroups }
+    if (metaUpdates.order !== undefined && metaUpdates.order !== 1000000) {
+        jsonData.dispOrder = metaUpdates.order;
+    }
+    if (metaUpdates.prevName) {
+        jsonData.prevName = metaUpdates.prevName;
+    }
+    if (metaUpdates.labels && metaUpdates.labels.length > 0) {
+        jsonData.labels = metaUpdates.labels.map(label => {
+            const group = metaUpdates.labelGroups && metaUpdates.labelGroups[label];
+            if (group) return { labelName: label, groupName: group };
+            return { labelName: label };
+        });
+    }
+    fs.writeFileSync(jsonPath, JSON.stringify(jsonData, null, 4), 'utf-8');
 }
 
 ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
     try {
         const metadata = getMetadataForFile(filePath);
-        const txtPath = getLabelFilePath(filePath);
         const fileName = path.basename(filePath);
 
         // Access master labels to record groups
@@ -504,20 +512,19 @@ ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
             }
         }
 
-        const lines = [fileName];
-        if (metadata.order !== 1000000) lines.push(`ORDER: ${metadata.order}`);
-        if (metadata.prevName) lines.push(`PREV_NAME: ${metadata.prevName}`);
-
+        const newLabelGroups = {};
         labels.forEach(label => {
             const group = masterMap.get(label);
-            if (group) {
-                lines.push(`${label} [GROUP: ${group}]`);
-            } else {
-                lines.push(label);
-            }
+            if (group) newLabelGroups[label] = group;
         });
 
-        fs.writeFileSync(txtPath, lines.join('\n'), 'utf-8');
+        writeMetadataJson(filePath, fileName, {
+            order: metadata.order,
+            prevName: metadata.prevName,
+            labels: labels,
+            labelGroups: newLabelGroups
+        });
+
         return { success: true };
     } catch (e) {
         return { success: false, error: e.message };
@@ -527,13 +534,14 @@ ipcMain.handle('save-file-labels', async (event, { filePath, labels }) => {
 ipcMain.handle('save-file-order', async (event, { filePath, order }) => {
     try {
         const metadata = getMetadataForFile(filePath);
-        const txtPath = getLabelFilePath(filePath);
         const fileName = path.basename(filePath);
 
-        const lines = [fileName, `ORDER: ${order}`];
-        if (metadata.prevName) lines.push(`PREV_NAME: ${metadata.prevName}`);
-        lines.push(...metadata.labels);
-        fs.writeFileSync(txtPath, lines.join('\n'), 'utf-8');
+        writeMetadataJson(filePath, fileName, {
+            order: order,
+            prevName: metadata.prevName,
+            labels: metadata.labels,
+            labelGroups: metadata.labelGroups
+        });
         return { success: true };
     } catch (e) {
         return { success: false, error: e.message };
@@ -564,18 +572,20 @@ ipcMain.handle('rename-file', async (event, { filePath, newName, autoSequence, s
 
         const metadata = getMetadataForFile(filePath);
         const oldLabelPath = getLabelFilePath(filePath);
-        const newLabelPath = getLabelFilePath(newPath);
 
         // Rename image
         fs.renameSync(filePath, newPath);
 
-        // Rename and update label file
-        const lines = [finalNewName + ext];
-        if (metadata.order !== 1000000) lines.push(`ORDER: ${metadata.order}`);
-        lines.push(`PREV_NAME: ${oldBaseName}`);
-        lines.push(...metadata.labels);
+        const newLabelPath = getLabelFilePath(newPath);
 
-        fs.writeFileSync(newLabelPath, lines.join('\n'), 'utf-8');
+        // Rename and update label file
+        writeMetadataJson(newPath, finalNewName + ext, {
+            order: metadata.order,
+            prevName: oldBaseName,
+            labels: metadata.labels,
+            labelGroups: metadata.labelGroups
+        });
+
         if (fs.existsSync(oldLabelPath) && oldLabelPath !== newLabelPath) {
             fs.unlinkSync(oldLabelPath);
         }
@@ -635,9 +645,9 @@ ipcMain.handle('split-image', async (event, { filePath, rows, cols }) => {
 
                 fs.writeFileSync(newPath, buffer);
 
-                const newLabelPath = getLabelFilePath(newPath);
-                const lines = [newFileName, `PREV_NAME: ${originalBase}`];
-                fs.writeFileSync(newLabelPath, lines.join('\n'), 'utf-8');
+                writeMetadataJson(newPath, newFileName, {
+                    prevName: originalBase
+                });
 
                 results.push(newPath);
             }
@@ -675,9 +685,9 @@ ipcMain.handle('resize-image', async (event, { filePath, width, height }) => {
 
         fs.writeFileSync(newPath, buffer);
 
-        const newLabelPath = getLabelFilePath(newPath);
-        const lines = [newFileName, `PREV_NAME: ${originalBase}`];
-        fs.writeFileSync(newLabelPath, lines.join('\n'), 'utf-8');
+        writeMetadataJson(newPath, newFileName, {
+            prevName: originalBase
+        });
 
         return { success: true, newPath };
     } catch (e) {
@@ -735,9 +745,9 @@ ipcMain.handle('save-watermarked-image', async (event, { filePath, imageDataUrl 
 
         fs.writeFileSync(newPath, buffer);
 
-        const newLabelPath = getLabelFilePath(newPath);
-        const lines = [newFileName, `PREV_NAME: ${originalBase}`];
-        fs.writeFileSync(newLabelPath, lines.join('\n'), 'utf-8');
+        writeMetadataJson(newPath, newFileName, {
+            prevName: originalBase
+        });
 
         return { success: true, newPath };
     } catch (e) {
